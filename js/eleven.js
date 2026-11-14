@@ -36,11 +36,17 @@ addEventListener('pointerdown', () => {
 const cache = new Map(); // chave -> objectURL
 const MAX_CACHE = 60;
 
+/* Vozes prontas do ElevenLabs (liberadas no plano grátis pela API), para quando a voz
+   própria do professor é da biblioteca e a conta não pode usá-la. */
+export const FREE_FALLBACK_VOICE = { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam' };
+
 function errorFor(status, detail) {
+  const raw = JSON.stringify(detail || '');
   const d = typeof detail === 'string' ? detail : detail?.message || detail?.status || '';
-  if (status === 401 && /quota/i.test(JSON.stringify(detail || ''))) return new ElevenError('quota', 'Acabaram os créditos do ElevenLabs neste mês.');
-  if (status === 401) return new ElevenError('badkey', 'Chave do ElevenLabs inválida.');
-  if (/library voices/i.test(JSON.stringify(detail || ''))) return new ElevenError('voice', 'O plano grátis do ElevenLabs não libera vozes da biblioteca pela API.');
+  if (/library voices|payment_required/i.test(raw)) return new ElevenError('library', 'O plano grátis do ElevenLabs não libera vozes da biblioteca pela API.');
+  if (status === 401 && /quota/i.test(raw)) return new ElevenError('quota', 'Acabaram os créditos do ElevenLabs neste mês.');
+  if (status === 401 && /permission/i.test(raw)) return new ElevenError('badkey', 'A chave do ElevenLabs não tem a permissão "Text to Speech". Crie uma chave com essa permissão ligada.');
+  if (status === 401) return new ElevenError('badkey', `Chave do ElevenLabs recusada${d ? ': ' + String(d).slice(0, 140) : '.'}`);
   if (status === 402 || status === 429) return new ElevenError('quota', 'Limite do ElevenLabs atingido.');
   if (status === 404 || status === 400 && /voice/i.test(d)) return new ElevenError('voice', 'Voz do ElevenLabs não encontrada. Escolha outra nas Configurações.');
   return new ElevenError('http', `ElevenLabs respondeu ${status}. ${String(d).slice(0, 120)}`);

@@ -75,6 +75,7 @@ function memoryCard() {
 function applyTheme() {
   const light = S().uiTheme === 'light';
   if (light) document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
+  document.documentElement.dataset.pavioMotion = S().pavioMotion === false ? 'off' : 'on';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#F5F7F5' : '#080B09');
 }
 applyTheme();
@@ -138,6 +139,22 @@ function reactAnswer(ok, key) {
 let elevenOff = false; // vira true se o ElevenLabs ficar sem créditos ou recusar a chave
 function stopAudio() { sayToken++; setTalkState('speaking', false); voice.stopSpeaking(); eleven.stop(); for (const r of Object.values(RENDERERS)) if (rState.get(r)) r.setTalking(false); }
 let sayToken = 0;
+/* Fala com o ElevenLabs. Se a voz própria do professor for da biblioteca e a conta for grátis,
+   troca (uma vez, com aviso) pela voz escolhida nas Configurações ou por uma voz pronta grátis. */
+let libraryBlocked = false;
+async function speakEleven(text, opts) {
+  const own = eleven.voiceFor(T());
+  const alt = S().eleven.voiceId && S().eleven.voiceId !== own ? S().eleven.voiceId : eleven.FREE_FALLBACK_VOICE.id;
+  if (!libraryBlocked) {
+    try { return await eleven.speak(text, { ...opts, voiceId: own }); }
+    catch (e) {
+      if (e.kind !== 'library' || own === alt) throw e;
+      libraryBlocked = true;
+      toast(`A voz própria do ${T().name} exige plano pago no ElevenLabs. Usando a voz ${alt === eleven.FREE_FALLBACK_VOICE.id ? eleven.FREE_FALLBACK_VOICE.name : 'escolhida nas Configurações'}.`, 5000);
+    }
+  }
+  return eleven.speak(text, { ...opts, voiceId: alt });
+}
 /* parts: [{ text, lang?, mul? }]. Inglês e português usam o ElevenLabs se configurado (a mesma voz
    faz o inglês e a bronca); sem ele, ou se falhar, a voz do navegador. */
 async function say(parts, mood) {
@@ -151,10 +168,10 @@ async function say(parts, mood) {
       const lang = p.lang || 'en-US';
       const rate = lang === 'pt-BR' ? 1.05 : S().rate * (p.mul || 1);
       if (eleven.elevenReady(T()) && !elevenOff) {
-        try { await eleven.speak(p.text, { lang, rate, voiceId: eleven.voiceFor(T()), alive: () => my === sayToken }); continue; }
+        try { await speakEleven(p.text, { lang, rate, alive: () => my === sayToken }); continue; }
         catch (e) {
           if (my !== sayToken) continue;
-          if (['quota', 'badkey', 'voice'].includes(e.kind)) { elevenOff = true; toast(e.message + ' Usando a voz do navegador.', 4000); }
+          if (['quota', 'badkey', 'voice', 'library'].includes(e.kind)) { elevenOff = true; toast(e.message + ' Usando a voz do navegador.', 5000); }
         }
       }
       if (my !== sayToken) continue;
@@ -1222,6 +1239,7 @@ function renderSettings() {
       <label class="field"><span>Professor</span><select id="teacher">${Object.values(TEACHERS).map((t) => `<option value="${t.id}" ${t.id === T().id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
       <label class="field"><span>Intensidade do humor${s.polite ? ' <span class="muted small">(desligada no Modo educado)</span>' : ''}</span><select id="humor" ${s.polite ? 'disabled' : ''}>${Object.entries(HUMOR).map(([k, h]) => `<option value="${k}" ${k === T().humor ? 'selected' : ''}>${esc(h.name)}</option>`).join('')}</select></label>
       ${T().renderer === 'pavio' ? `<div class="switch"><span><b>Pavio em 3D</b><br><span class="muted small">${webglOK() ? 'Corpo inteiro no início, com uma pose para cada emoção, e a cabeça com a cara da emoção no chat e nas aulas. Gasta mais bateria; cada pose é baixada (uns 4 MB) na primeira vez que aparece.' : 'Este aparelho não suporta 3D (WebGL).'}</span></span><input type="checkbox" id="pavio3d" ${s.pavio3d ? 'checked' : ''} ${webglOK() ? '' : 'disabled'} /></div>` : ''}
+      ${T().renderer === 'pavio' ? `<div class="switch"><span><b>Pavio sempre animado</b><br><span class="muted small">${matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Seu aparelho pede para reduzir animações. Ligado, só o Pavio continua se mexendo; o resto do app fica parado.' : 'Desligue para o Pavio ficar parado, só trocando de expressão.'}</span></span><input type="checkbox" id="pavioMotion" ${s.pavioMotion !== false ? 'checked' : ''} /></div>` : ''}
       <div class="switch"><span><b>Modo educado</b><br><span class="muted small">Sem palavrões nem deboche</span></span><input type="checkbox" id="polite" ${s.polite ? 'checked' : ''} /></div>
       <label class="field"><span>Como ele te ouve</span><select id="listenMode">
         <option value="gemini" ${s.listenMode === 'gemini' ? 'selected' : ''}>IA ouve meu áudio (avalia a pronúncia de verdade)</option>
@@ -1259,6 +1277,7 @@ function renderSettings() {
         ${s.eleven.voiceId ? `<option value="${esc(s.eleven.voiceId)}" selected>${esc(s.eleven.voiceName || s.eleven.voiceId)}</option>` : ''}
       </select></label>
       <label class="field"><span>…ou cole o ID da voz</span><input type="text" id="elVoiceId" value="${esc(s.eleven.voiceId)}" placeholder="ID da voz" autocomplete="off" /></label>
+      <div class="row"><button class="btn sm outline" id="elTest">${icon('volume-2')} Testar a voz</button></div>
       <p class="muted small" id="elInfo">Cada fala gasta créditos. Repetir o áudio não gasta de novo.</p>
     </div>
 
@@ -1321,7 +1340,24 @@ function renderSettings() {
   $('#memClear')?.addEventListener('click', () => { if (confirm('Apagar tudo o que o professor lembra de você? (Progresso e notas continuam.)')) { mem.clearMemory(); toast('Memória apagada.'); renderSettings(); } });
   bind('autoListen', 'change', (e) => { s.autoListen = e.target.checked; save(); });
 
-  bind('elKey', 'change', (e) => { s.eleven.key = e.target.value.trim(); elevenOff = false; save(); });
+  bind('pavioMotion', 'change', (e) => {
+    s.pavioMotion = e.target.checked; save(); applyTheme();
+    for (const r of Object.values(RENDERERS)) if (rState.get(r)) r.apply?.();
+    toast(s.pavioMotion ? 'Pavio animado.' : 'Pavio parado, só trocando de expressão.');
+  });
+  bind('elKey', 'change', (e) => { s.eleven.key = e.target.value.trim(); elevenOff = false; libraryBlocked = false; save(); });
+  /* Testa a voz de verdade e mostra o motivo exato se falhar (sem cair para a voz do navegador). */
+  bind('elTest', 'click', async () => {
+    s.eleven.key = $('#elKey').value.trim(); save(); elevenOff = false;
+    if (!s.eleven.key) return toast('Cole a chave do ElevenLabs primeiro.');
+    const b = $('#elTest'), info = $('#elInfo'); b.disabled = true;
+    stopAudio(); setTalkState('speaking', true);
+    try {
+      await speakEleven('Hello! Ready to train your English? Bora!', { lang: 'en-US', rate: S().rate });
+      info.textContent = '✅ Voz do ElevenLabs funcionando.';
+    } catch (e) { info.textContent = '❌ ' + e.message; toast('❌ ' + e.message, 6000); }
+    finally { b.disabled = false; setTalkState('speaking', false); }
+  });
   bind('elVoiceId', 'change', (e) => { s.eleven.voiceId = e.target.value.trim(); s.eleven.voiceName = ''; elevenOff = false; save(); renderSettings(); });
   bind('elVoice', 'change', (e) => { const o = e.target.selectedOptions[0]; s.eleven.voiceId = e.target.value; s.eleven.voiceName = e.target.value ? o.textContent : ''; elevenOff = false; save(); renderSettings(); });
   bind('elLoad', 'click', async () => {

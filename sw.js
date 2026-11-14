@@ -3,7 +3,7 @@
    Ao mudar qualquer arquivo, aumente CACHE_VERSION para
    forçar a atualização no celular.
    ========================================================== */
-const CACHE_VERSION = 'nuvem-v29';
+const CACHE_VERSION = 'nuvem-v30';
 const SHELL = [
   './',
   './index.html',

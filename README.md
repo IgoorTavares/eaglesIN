@@ -310,7 +310,7 @@ Na primeira vez que tocar no microfone, permita o acesso.
   Copie um bloco existente e altere. Escreva frases **suas** sobre a obra; não copie falas de roteiro nem letras de música.
 
 ### Publicar uma atualização
-Depois de editar qualquer arquivo, aumente `CACHE_VERSION` em **`sw.js`** (hoje `nuvem-v29`) e suba de novo.
+Depois de editar qualquer arquivo, aumente `CACHE_VERSION` em **`sw.js`** (hoje `nuvem-v30`) e suba de novo.
 Se criar um arquivo novo, adicione-o também à lista `SHELL`.
 O celular baixa a versão nova em segundo plano, e ela aparece quando você **abrir o app pela segunda vez**.
 

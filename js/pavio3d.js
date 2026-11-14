@@ -97,7 +97,8 @@ const LABEL = {
 };
 
 const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
-const reduced = () => reduceMQ.matches;
+// "Pavio sempre animado" (Configurações) ignora o "reduzir movimento" do sistema só no personagem.
+const reduced = () => reduceMQ.matches && document.documentElement.dataset.pavioMotion !== 'on';
 export function webglOK() {
   try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
 }

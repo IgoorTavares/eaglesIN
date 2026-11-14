@@ -60,6 +60,7 @@ function defaults() {
       polite: false,
       speakPt: true,
       autoListen: false,
+      pavioMotion: true,      // Pavio se mexe mesmo com "reduzir movimento"/"efeitos de animação" desligados no sistema
       voiceURI: '',
       eleven: { key: '', voiceId: '', voiceName: '' },
       reminder: { enabled: false, time: '19:00' },

@@ -33,7 +33,8 @@ const LABEL = {
 const RED = { angry: 0.32, huffing: 0.42, calming: 0.45 };
 
 const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
-const reduced = () => reduceMQ.matches;
+// "Pavio sempre animado" (Configurações) ignora o "reduzir movimento" do sistema só no personagem.
+const reduced = () => reduceMQ.matches && document.documentElement.dataset.pavioMotion !== 'on';
 const rand = (a, b) => a + Math.random() * (b - a);
 
 const GESTURES = {
