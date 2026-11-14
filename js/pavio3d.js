@@ -185,22 +185,52 @@ class Pavio3D {
     return this.M.bodyFor[this.mood] || this.M.faceFor[this.mood] || 'neutro';
   }
 
+  /* Baixa uma pose de corpo inteiro (uma vez só). */
+  loadBody(key) {
+    if (this.bodies[key] || this.bodyLoading[key] || !this.M.bodies?.[key]) return;
+    this.bodyLoading[key] = this.loader.loadAsync(`./icons/pavio3d/corpos/${key}.glb`)
+      .then((g) => { this.bodies[key] = this.addBody(g, this.M.bodies[key].yaw); this.touchBody(key); this.trimBodies(); })
+      .catch(() => { this.M.bodies[key] = null; }) // não tenta de novo
+      .finally(() => { delete this.bodyLoading[key]; });
+  }
+  /* Memória de vídeo: cada pose ocupa dezenas de MB na placa. Fica o neutro, a pose atual e
+     as MAX_POSES usadas mais recentemente; as outras são liberadas e baixadas de novo (do cache)
+     se voltarem a aparecer. Sem isso, um celular perde o WebGL depois de algumas trocas. */
+  touchBody(key) { (this.bodyUse ??= {})[key] = performance.now(); }
+  trimBodies() {
+    const MAX_POSES = 3;
+    const keys = Object.keys(this.bodies).filter((k) => k !== 'neutro' && k !== this.bodyNow);
+    keys.sort((a, b) => (this.bodyUse?.[b] || 0) - (this.bodyUse?.[a] || 0));
+    for (const k of keys.slice(MAX_POSES - 1)) {
+      const h = this.bodies[k];
+      h.traverse((o) => {
+        if (!o.isMesh) return;
+        o.geometry?.dispose();
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          for (const v of Object.values(m)) if (v && v.isTexture) v.dispose();
+          m.dispose();
+        }
+      });
+      this.bodyPivot.remove(h);
+      delete this.bodies[k];
+    }
+  }
+  /* Deixa pronta a pose de uma emoção que vem a seguir (ex.: próxima tela), sem trocar a atual. */
+  preloadMood(mood) {
+    if (!this.M?.procedural || !this.bodies) return;
+    this.loadBody(this.M.bodyFor[mood] || this.M.faceFor[mood] || 'neutro');
+  }
+
   /* Troca o corpo inteiro pela expressão pedida. Se ainda não baixou, baixa agora e
      mantém o corpo atual até chegar (ou fica no atual se falhar). */
   setBody(key) {
     if (!this.M.bodies[key] && key !== 'neutro') key = 'neutro';
     const b = this.bodies[key];
-    if (!b) {
-      if (!this.bodyLoading[key]) {
-        this.bodyLoading[key] = this.loader.loadAsync(`./icons/pavio3d/corpos/${key}.glb`)
-          .then((g) => { this.bodies[key] = this.addBody(g, this.M.bodies[key].yaw); })
-          .catch(() => { this.M.bodies[key] = null; }); // não tenta de novo
-      }
-      return;
-    }
+    if (!b) { this.loadBody(key); return; }
     if (this.bodyNow === key) return;
     for (const h of Object.values(this.bodies)) h.visible = h === b;
     this.bodyNow = key; this.popAt = this.clock.elapsedTime;
+    this.touchBody(key); this.trimBodies();
   }
 
   setFace(key) {
@@ -304,6 +334,9 @@ class Pavio3D {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.stageEl.appendChild(renderer.domElement);
     this.renderer = renderer;
+    // Se o aparelho derrubar o WebGL (pouca memória), espera ele voltar em vez de ficar com a tela quebrada.
+    renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; });
+    renderer.domElement.addEventListener('webglcontextrestored', () => { this.lost = false; this.resize(); });
 
     const scene = new THREE.Scene();
     // Luz neutra: o personagem mantém as cores originais (a cor da marca fica só na interface).
@@ -364,7 +397,8 @@ class Pavio3D {
     addEventListener('online', () => this.apply());
     addEventListener('offline', () => this.apply());
     reduceMQ.addEventListener?.('change', () => this.apply());
-    document.addEventListener('visibilitychange', () => this.loop());
+    // Ao voltar para a tela, redesenha na hora (o navegador pode ter descartado o quadro).
+    document.addEventListener('visibilitychange', () => { this.loop(); if (document.visibilityState === 'visible' && this.root.isConnected) this.resize(); });
     new ResizeObserver(() => this.resize()).observe(this.stageEl);
     this.apply();
   }
@@ -540,7 +574,7 @@ class Pavio3D {
     }
   }
 
-  draw() { if (this.renderer) this.renderer.render(this.scene, this.camera); }
+  draw() { if (this.renderer && !this.lost) this.renderer.render(this.scene, this.camera); }
 }
 
 export const pavio3d = new Pavio3D();

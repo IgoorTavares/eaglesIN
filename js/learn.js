@@ -33,6 +33,7 @@ const RIGHT_POLITE = ['Muito bem!', 'Isso mesmo!', 'Excelente!'];
 function react(ok, key) {
   const polite = X.S().polite;
   const r = X.reactAnswer(ok, key);
+  if (r.line) X.bubble(r.line);
   if (X.S().speakPt) X.say([{ text: r.line || pick(ok ? (polite ? RIGHT_POLITE : RIGHT_RUDE) : (polite ? WRONG_POLITE : WRONG_RUDE)), lang: 'pt-BR' }]);
 }
 
@@ -203,8 +204,7 @@ export function renderUnit(unitId) {
    EXERCÍCIOS (motor comum de aula, verificação e prova)
    ========================================================== */
 function itemHTML(it, i, n, reading) {
-  const head = `<div class="ex-head"><span class="tag">${SKILLS[it.habilidade] || it.habilidade}</span><span class="muted small">${i + 1}/${n}</span></div>
-    <div class="progress ex-prog"><i style="width:${Math.round((i / n) * 100)}%"></i></div>`;
+  const head = `<div class="ex-count">${i + 1} de ${n}</div>`;
   const read = it.habilidade === 'leitura' && reading ? `<details class="reading" open><summary>${icon('book-open')} Texto</summary><p>${esc(reading)}</p></details>` : '';
   const audio = it.audio ? `<div class="row" style="margin:8px 0"><button class="btn sm outline" data-play>${icon('volume-2')} Ouvir</button><button class="btn sm ghost" data-slow>${icon('turtle')} Devagar</button></div>` : '';
   let body = '';
@@ -288,7 +288,7 @@ function runSpeaking(box, phrases, { live, tries = 2, title = 'Prática oral' })
       if (i >= phrases.length) return resolve(notas);
       const p = phrases[i];
       box.innerHTML = `<div class="card ex-card center">
-        <div class="ex-head"><span class="tag">${icon('audio-lines')} ${title}</span><span class="muted small">${i + 1}/${phrases.length}</span></div>
+        <div class="ex-count">${title} · ${i + 1} de ${phrases.length}</div>
         <div class="target" style="margin:12px 0">${esc(p.en)}</div>
         <div class="muted small">${esc(p.pt || '')}</div>
         <div class="heard" id="heard"></div><div class="interim" id="interim"></div>
@@ -357,6 +357,19 @@ async function loadPack(box, id, build, gen, live, label) {
    AULA EM 6 ETAPAS
    ========================================================== */
 const STEPS = ['Introdução', 'Vocabulário', 'Explicação', 'Prática', 'Oral', 'Verificação'];
+/* Modo foco (aula e prova): só fechar, uma barra de progresso e a contagem.
+   O Pavio fica de corpo inteiro no palco, e o que ele fala em português aparece no balão. */
+const focusBar = (back, steps) => `<div class="focus-bar">
+    <button class="icon-btn sm" data-go="${back}" aria-label="Sair">${icon('x')}</button>
+    <div class="stepper steps-${steps.length}" id="stepper" role="img" aria-label="Progresso">${steps.map((s, k) => `<span data-k="${k}" title="${s}"></span>`).join('')}</div>
+    <span class="focus-count" id="stepCount">1/${steps.length}</span>
+  </div>`;
+const pavioStage = () => `<div class="pavio-stage">${X.stageHost('full', 'lesson-stage')}<div class="pavio-bubble hidden" id="pavioBubble" aria-live="polite"></div></div>`;
+function setFocusStep(k, steps) {
+  X.$$('#stepper span').forEach((s, i) => { s.classList.toggle('on', i === k); s.classList.toggle('done', i < k); });
+  const c = X.$('#stepCount'); if (c) c.textContent = `${k + 1}/${steps.length}`;
+  X.$('#stepper')?.setAttribute('aria-label', `Etapa ${k + 1} de ${steps.length}: ${steps[k]}`);
+}
 const exampleRow = (e) => `<button class="example-row" data-say="${esc(e.en)}"><span class="ex-play">${icon('volume-2')}</span><span class="grow"><b lang="en">${esc(e.en)}</b><span class="muted small">${esc(e.pt)}</span></span></button>`;
 export function renderLessonC(lessonId) {
   const lesson = getLesson(lessonId);
@@ -364,25 +377,9 @@ export function renderLessonC(lessonId) {
   const unit = getUnit(lesson.unit), level = getLevel(lesson.level);
   const live = X.liveCheck();
   const vocab = lesson.title === 'Practice' ? unitVocab(unit).sort(() => Math.random() - 0.5).slice(0, 12) : parseVocab(lesson.vocab);
-  X.view.innerHTML = `
-    <button class="link back-link" data-go="unit/${unit.id}">${icon('chevron-left')} Unidade ${unit.n}: ${esc(unit.title)}</button>
-    <header class="lesson-head">
-      <span class="eyebrow">${level.id} · Aula ${lesson.n}</span>
-      <h1>${esc(lesson.title)}</h1>
-      <p class="muted small">${esc(lesson.pt)}</p>
-    </header>
-    <div class="lesson-progress">
-      <div class="step-label"><b id="stepName">${STEPS[0]}</b><span class="muted small" id="stepCount">Etapa 1 de ${STEPS.length}</span></div>
-      <div class="stepper" id="stepper">${STEPS.map((s, k) => `<span data-k="${k}" title="${s}"><em>${k + 1}. ${s}</em></span>`).join('')}</div>
-    </div>
-    <div class="lesson-stage-card">${X.stageHost('bust', 'lesson-stage')}</div>
-    <div id="stepBox"></div>`;
+  X.view.innerHTML = `${focusBar('unit/' + unit.id, STEPS)}${pavioStage()}<div id="stepBox"></div>`;
   const box = X.$('#stepBox');
-  const setStep = (k) => {
-    X.$$('#stepper span').forEach((s, i) => { s.classList.toggle('on', i === k); s.classList.toggle('done', i < k); });
-    const n = X.$('#stepName'), c = X.$('#stepCount');
-    if (n) n.textContent = STEPS[k]; if (c) c.textContent = `Etapa ${k + 1} de ${STEPS.length}`;
-  };
+  const setStep = (k) => setFocusStep(k, STEPS);
 
   (async () => {
     const pack = await loadPack(box, 'lesson:' + lesson.id + packTag(),
@@ -395,7 +392,7 @@ export function renderLessonC(lessonId) {
 
     // 1. Introdução
     setStep(0); X.setMood('neutra');
-    box.innerHTML = `<div class="card step-card"><h3 class="step-h">${icon('target')} Objetivo</h3><p>${esc(lesson.pt)}</p><p class="teacher-says">${esc(pack.intro)}</p>
+    box.innerHTML = `<div class="step-card step-plain"><span class="eyebrow">${level.id} · Aula ${lesson.n}</span><h1 class="step-title">${esc(lesson.title)}</h1><p class="muted">${esc(lesson.pt)}</p>
       ${pack.exemplos.slice(0, 2).map(exampleRow).join('')}</div>`;
     X.say([{ text: pack.intro, lang: 'pt-BR' }], 'neutra');
     await nextBtn('Começar'); if (!live()) return;
@@ -479,31 +476,15 @@ export function renderExamC(kind, id) {
   const live = X.liveCheck();
   const packId = `exam:${final ? 'final:' + level.id : unit.id}${packTag()}`;
   const ESTEPS = ['Compreensão', 'Escrita', 'Fala', 'Resultado'];
-  X.view.innerHTML = `
-    <button class="link back-link" data-go="${final ? 'learn/' + level.id : 'unit/' + unit.id}">${icon('chevron-left')} ${final ? `${level.id} · ${esc(level.name)}` : `Unidade ${unit.n}: ${esc(unit.title)}`}</button>
-    <header class="lesson-head">
-      <span class="eyebrow">${final ? `Prova final · ${level.id}` : `Prova · ${level.id} · Unidade ${unit.n}`}</span>
-      <h1>${final ? `Prova final do ${level.id}` : esc(unit.title)}</h1>
-      <p class="muted small">${esc(final ? level.final : unit.topics)}</p>
-    </header>
-    <div class="lesson-progress">
-      <div class="step-label"><b id="stepName">Preparação</b><span class="muted small" id="stepCount">Antes de começar</span></div>
-      <div class="stepper steps-4" id="stepper">${ESTEPS.map((s, k) => `<span data-k="${k}" title="${s}"><em>${k + 1}. ${s}</em></span>`).join('')}</div>
-    </div>
-    <div class="lesson-stage-card">${X.stageHost('bust', 'lesson-stage')}</div>
-    <div id="stepBox"></div>`;
+  X.view.innerHTML = `${focusBar(final ? 'learn/' + level.id : 'unit/' + unit.id, ESTEPS)}${pavioStage()}<div id="stepBox"></div>`;
   const box = X.$('#stepBox');
-  const setStep = (k) => {
-    X.$$('#stepper span').forEach((s, i) => { s.classList.toggle('on', i === k); s.classList.toggle('done', i < k); });
-    const n = X.$('#stepName'), c = X.$('#stepCount');
-    if (n) n.textContent = ESTEPS[k]; if (c) c.textContent = `Etapa ${k + 1} de ${ESTEPS.length}`;
-  };
+  const setStep = (k) => setFocusStep(k, ESTEPS);
 
   (async () => {
     const pack = await loadPack(box, packId, () => buildExamPrompt({ teacher: X.T(), polite: X.S().polite, level, unit, final }),
       (sys) => generateExam(sys, final ? 18 : 15), live, 'Montando a prova…');
     if (!pack || !live()) return;
-    box.innerHTML = `<div class="card step-card"><p class="teacher-says">${esc(pack.abertura)}</p>
+    box.innerHTML = `<div class="card step-card"><span class="eyebrow">${final ? `Prova final · ${level.id}` : `Prova · ${level.id} · Unidade ${unit.n}`}</span><h1 class="step-title">${final ? `Prova final do ${level.id}` : esc(unit.title)}</h1>
       <div class="exam-parts">
         <div><span class="mini-ico">${icon('book-open')}</span><b>${pack.itens.length}</b><span class="muted small">questões</span></div>
         <div><span class="mini-ico">${icon('pencil')}</span><b>${pack.escrita.length}</b><span class="muted small">de escrita</span></div>
