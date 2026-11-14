@@ -24,13 +24,26 @@ export const elevenReady = (teacher) => !!(cfg().key && voiceFor(teacher));
    (iPhone e Android só deixam tocar áudio depois de um gesto). */
 const player = new Audio();
 player.preload = 'auto';
+player.setAttribute('playsinline', '');
+// iPhone: toca mesmo com a chave de silencioso ligada (Safari 16.4+), como um player de mídia.
+try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+/* 0,2 s de silêncio de verdade (o iPhone ignora um WAV vazio e não libera o player). */
+function silenceURL() {
+  const n = 1600, b = new ArrayBuffer(44 + n), v = new DataView(b);
+  const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  w(36, 'data'); v.setUint32(40, n, true); for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+}
 let unlocked = false;
-const SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-addEventListener('pointerdown', () => {
-  if (unlocked) return;
-  unlocked = true;
-  if (!player.src) { player.src = SILENCE; player.play().catch(() => {}); }
-}, { passive: true });
+const unlock = () => {
+  if (unlocked || stopCurrent) return;
+  player.src = silenceURL();
+  player.play().then(() => { unlocked = true; }).catch(() => {}); // tenta de novo no próximo toque
+};
+addEventListener('pointerdown', unlock, { passive: true });
+addEventListener('touchend', unlock, { passive: true });
 
 /* Cache em memória: "ouvir de novo" não gasta créditos outra vez. */
 const cache = new Map(); // chave -> objectURL
@@ -80,7 +93,7 @@ async function synth(text, lang, voiceId) {
   return url;
 }
 
-let stopCurrent = null;
+var stopCurrent = null; // var: o desbloqueio acima consulta antes desta linha
 export const isPlaying = () => !!stopCurrent;
 export function stop() { stopCurrent?.(); }
 
@@ -113,7 +126,8 @@ export async function speak(text, { lang = 'en-US', rate = 1, alive, voiceId = c
       guard = setTimeout(() => finish(), (player.duration / player.playbackRate) * 1000 + 2000);
     };
     player.onerror =() => finish(new ElevenError('play', 'Não consegui tocar o áudio do ElevenLabs.'));
-    player.play().catch(() => finish(new ElevenError('play', 'O navegador bloqueou o áudio. Toque na tela e tente de novo.')));
+    player.play().then(() => { unlocked = true; })
+      .catch(() => finish(new ElevenError('play', 'O navegador bloqueou o áudio. Toque na tela e tente de novo.')));
   });
 }
 

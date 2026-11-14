@@ -12,6 +12,10 @@ let voices = [];
 function loadVoices() { voices = canSpeak ? speechSynthesis.getVoices() : []; }
 if (canSpeak) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
 
+/* Vozes "de efeito" do iPhone/Mac (sinos, robôs, sussurro...): não servem para aula. */
+const NOVELTY = /^(albert|bad news|bahh|bells|boing|bolhas|bubbles|cellos|celos|wobble|fred|good news|jester|junior|kathy|organ|pipe organ|ralph|superstar|trinoids|whisper|zarvox|deranged|hysterical|princess|sinos|violoncelos|órgão|sussurro|boas notícias|más notícias)\b/i;
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 /* Lista vozes de um idioma, melhores primeiro (Google/Natural/Premium soam melhor). */
 export function listVoices(lang = 'en-US') {
   const prefix = lang.slice(0, 2).toLowerCase();
@@ -21,7 +25,7 @@ export function listVoices(lang = 'en-US') {
     (/google/i.test(v.name) ? 4 : 0) +
     (/samantha|aria|jenny|ava|allison|zira/i.test(v.name) ? 2 : 0) +
     (v.localService ? 0 : 1);
-  return voices.filter((v) => v.lang.toLowerCase().startsWith(prefix)).sort((a, b) => score(b) - score(a));
+  return voices.filter((v) => v.lang.toLowerCase().startsWith(prefix) && !NOVELTY.test(v.name)).sort((a, b) => score(b) - score(a));
 }
 
 /* Nomes comuns de vozes masculinas (para o professor Mario). */
@@ -40,7 +44,7 @@ export function speak(text, opts = {}) {
     const lang = opts.lang || 'en-US';
     u.lang = lang;
     u.rate = Math.min(1.5, Math.max(0.5, opts.rate || 1));
-    const v = pickVoice(lang, lang.startsWith('en') ? opts.voiceURI : '', opts.male);
+    const v = pickVoice(lang, lang.startsWith('en') ? opts.voiceURI : opts.voiceURIpt, opts.male);
     if (v) u.voice = v;
     // Sem voz masculina instalada: engrossa um pouco a voz disponível.
     if (opts.male && v && !MALE.test(v.name)) u.pitch = 0.7;
@@ -49,8 +53,9 @@ export function speak(text, opts = {}) {
     u.onstart = () => opts.onStart?.();
     u.onend = finish;
     u.onerror = finish;
-    // Chrome corta falas longas após ~15s; esse "cutucão" evita isso.
-    const keepAlive = setInterval(() => { if (speechSynthesis.speaking) { speechSynthesis.pause(); speechSynthesis.resume(); } }, 10000);
+    // Chrome no computador corta falas longas após ~15s; esse "cutucão" evita isso.
+    // No iPhone ele atrapalha (pausa e às vezes não volta), então fica desligado lá.
+    const keepAlive = IOS ? 0 : setInterval(() => { if (speechSynthesis.speaking) { speechSynthesis.pause(); speechSynthesis.resume(); } }, 10000);
     speechSynthesis.speak(u);
     // Garantia: se o evento de fim nunca vier, libera depois de um tempo proporcional.
     setTimeout(finish, 2000 + text.length * 120 / u.rate);

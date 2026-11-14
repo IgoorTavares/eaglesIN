@@ -142,18 +142,22 @@ let sayToken = 0;
 /* Fala com o ElevenLabs. Se a voz própria do professor for da biblioteca e a conta for grátis,
    troca (uma vez, com aviso) pela voz escolhida nas Configurações ou por uma voz pronta grátis. */
 let libraryBlocked = false;
+const elevenWarned = new Set(); // avisa cada tipo de falha só uma vez por sessão
+let lastElevenVoice = ''; // nome da voz que tocou por último (para o "Testar a voz")
 async function speakEleven(text, opts) {
   const own = eleven.voiceFor(T());
-  const alt = S().eleven.voiceId && S().eleven.voiceId !== own ? S().eleven.voiceId : eleven.FREE_FALLBACK_VOICE.id;
+  const altId = S().eleven.voiceId && S().eleven.voiceId !== own ? S().eleven.voiceId : eleven.FREE_FALLBACK_VOICE.id;
+  const altName = altId === eleven.FREE_FALLBACK_VOICE.id ? eleven.FREE_FALLBACK_VOICE.name : (S().eleven.voiceName || 'escolhida nas Configurações');
   if (!libraryBlocked) {
-    try { return await eleven.speak(text, { ...opts, voiceId: own }); }
+    try { await eleven.speak(text, { ...opts, voiceId: own }); lastElevenVoice = own === T().elevenVoice ? `própria do ${T().name}` : (S().eleven.voiceName || own); return; }
     catch (e) {
-      if (e.kind !== 'library' || own === alt) throw e;
+      if (e.kind !== 'library') throw e;
       libraryBlocked = true;
-      toast(`A voz própria do ${T().name} exige plano pago no ElevenLabs. Usando a voz ${alt === eleven.FREE_FALLBACK_VOICE.id ? eleven.FREE_FALLBACK_VOICE.name : 'escolhida nas Configurações'}.`, 5000);
+      toast(`A voz própria do ${T().name} é da biblioteca do ElevenLabs e exige plano pago. Usando a voz ${altName}.`, 6000);
     }
   }
-  return eleven.speak(text, { ...opts, voiceId: alt });
+  await eleven.speak(text, { ...opts, voiceId: altId });
+  lastElevenVoice = altName;
 }
 /* parts: [{ text, lang?, mul? }]. Inglês e português usam o ElevenLabs se configurado (a mesma voz
    faz o inglês e a bronca); sem ele, ou se falhar, a voz do navegador. */
@@ -172,10 +176,11 @@ async function say(parts, mood) {
         catch (e) {
           if (my !== sayToken) continue;
           if (['quota', 'badkey', 'voice', 'library'].includes(e.kind)) { elevenOff = true; toast(e.message + ' Usando a voz do navegador.', 5000); }
+          else if (!elevenWarned.has(e.kind)) { elevenWarned.add(e.kind); toast(e.message + ' Usando a voz do navegador nesta fala.', 5000); }
         }
       }
       if (my !== sayToken) continue;
-      await voice.speak(p.text, { lang, rate, voiceURI: S().voiceURI, male: T().g === 'm' });
+      await voice.speak(p.text, { lang, rate, voiceURI: S().voiceURI, voiceURIpt: S().voiceURIpt, male: T().g === 'm' });
     }
   } finally { if (my === sayToken) { setTalkState('speaking', false); if (rOK()) R().setTalking(false); } }
 }
@@ -287,6 +292,54 @@ function updateChips() {
   $('#chipXp').title = 'Seu nível CEFR';
 }
 
+/* ---------------------------------------------------------- instalar o app (PWA)
+   Android e computador: o navegador avisa (beforeinstallprompt) e o botão abre a instalação.
+   iPhone: não existe esse aviso; o botão mostra o passo a passo do Safari. */
+let installEvt = null;
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOSDevice = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const canOfferInstall = () => !isStandalone() && (!!installEvt || isIOSDevice);
+function refreshInstallUI() { $$('[data-install]').forEach((el) => el.classList.toggle('hidden', !canOfferInstall() || (el.dataset.install === 'home' && S().installDismissed))); }
+addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; refreshInstallUI(); });
+addEventListener('appinstalled', () => { installEvt = null; refreshInstallUI(); toast('EaglesIn instalado. Abra pelo ícone do Pavio.'); });
+async function installApp() {
+  if (installEvt) {
+    installEvt.prompt();
+    const { outcome } = await installEvt.userChoice.catch(() => ({}));
+    installEvt = null; refreshInstallUI();
+    if (outcome === 'accepted') toast('Instalando o EaglesIn…');
+    return;
+  }
+  if (!isIOSDevice) {
+    openModal(`<h2>${icon('download')} Instalar o EaglesIn</h2>
+      <p>No menu do navegador (<b>⋮</b> ou <b>…</b>), toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</p>
+      <p class="muted small">No Firefox do computador não existe essa opção; use Chrome ou Edge.</p>
+      <button class="btn primary block" id="instOk">Entendi</button>`);
+    $('#instOk').onclick = closeModal; return;
+  }
+  const safari = /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+  openModal(`
+    <h2>${icon('download')} Instalar no iPhone</h2>
+    ${safari ? '' : '<p class="muted small">Se não aparecer a opção, abra este site no Safari.</p>'}
+    <ol class="install-steps">
+      <li>Toque em <b>Compartilhar</b> <span class="muted">(o quadrado com a seta para cima, na barra do navegador)</span>.</li>
+      <li>Role e toque em <b>Adicionar à Tela de Início</b>.</li>
+      <li>Toque em <b>Adicionar</b>. O EaglesIn aparece com o ícone do Pavio.</li>
+    </ol>
+    <button class="btn primary block" id="instOk">Entendi</button>`);
+  $('#instOk').onclick = closeModal;
+}
+const installCardHTML = () => `<div class="card install-card" data-install="home">
+    <img src="icons/pavio-marca.png" alt="" width="40" height="40" />
+    <div class="grow"><b>Instale o app</b><span class="muted small">Tela cheia, com o ícone do Pavio.</span></div>
+    <button class="btn sm primary" data-install-go>${icon('download')} Instalar</button>
+    <button class="icon-btn sm" data-install-x aria-label="Dispensar">${icon('x')}</button>
+  </div>`;
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-install-go]')) installApp();
+  else if (e.target.closest('[data-install-x]')) { S().installDismissed = true; save(); refreshInstallUI(); }
+});
+
 function renderHome() {
   const t = today(), plan = currentPlan();
   const pct = Math.min(100, (t.seconds / goalSeconds()) * 100);
@@ -369,6 +422,8 @@ function renderHome() {
         ${rec.action ? `<button class="btn sm outline" id="recBtn">Fazer agora</button>` : ''}</div>
     </div>
 
+    ${installCardHTML()}
+
     <button class="card talk-cta" data-go="talk">
       <span class="talk-ico">${icon('mic')}</span>
       <span class="grow"><b>Conversar com ${T().g === 'm' ? 'o' : 'a'} ${esc(T().name)}</b><span>Por voz ou texto, no seu nível (${lv.id})</span></span>
@@ -376,6 +431,7 @@ function renderHome() {
     </button>
 
     ${!state.testDone ? `<div class="card rec-card"><span class="mini-ico">${icon('sparkles')}</span><div class="grow"><b>Diagnóstico</b><p class="muted small">Teste de nivelamento opcional para começar no nível certo (A1 a C1).</p><button class="btn sm" id="levelBtn">Fazer teste de nível</button></div></div>` : ''}`;
+  refreshInstallUI();
   $('#ctaGo').onclick = () => go(nl ? 'lesson-c/' + nl.id : 'exam-c/final/' + lv.id);
   if ($('#stage3d')) $('#stage3d').onclick = () => {
     stopAudio(); S().pavio3d = !S().pavio3d; save();
@@ -1263,7 +1319,8 @@ function renderSettings() {
     <div class="card">
       <h2 class="set-h">${icon('volume-2')} Voz</h2>
       <label class="field"><span>Velocidade: <b id="rateVal">${s.rate.toFixed(2)}x</b></span><input type="range" id="rate" min="0.7" max="1.2" step="0.05" value="${s.rate}" /></label>
-      <label class="field"><span>Voz do navegador (reserva)</span><select id="voiceSel"></select></label>
+      <label class="field"><span>Voz do aparelho em inglês (reserva)</span><select id="voiceSel"></select></label>
+      <label class="field"><span>Voz do aparelho em português (reserva)</span><select id="voiceSelPt"></select></label>
       <button class="btn block" id="testVoice">Testar voz</button>
       <div class="switch"><span>Ler a bronca em português em voz alta</span><input type="checkbox" id="speakPt" ${s.speakPt ? 'checked' : ''} /></div>
       <div class="switch"><span>Abrir o microfone sozinho depois da fala do professor</span><input type="checkbox" id="autoListen" ${s.autoListen ? 'checked' : ''} /></div>
@@ -1274,11 +1331,20 @@ function renderSettings() {
         <div class="row"><input type="password" id="elKey" value="${esc(s.eleven.key)}" placeholder="sk_..." autocomplete="off" /><button class="btn sm" id="elLoad">Carregar vozes</button></div></label>
       <label class="field"><span>Voz</span><select id="elVoice">
         <option value="">— nenhuma (voz do navegador) —</option>
-        ${s.eleven.voiceId ? `<option value="${esc(s.eleven.voiceId)}" selected>${esc(s.eleven.voiceName || s.eleven.voiceId)}</option>` : ''}
+        ${s.eleven.voiceId ? `<option value="${esc(s.eleven.voiceId)}" selected>${esc(s.eleven.voiceId === T().elevenVoice ? `Voz própria do ${T().name} (biblioteca, exige plano pago)` : s.eleven.voiceName || 'Voz colada pelo ID')}</option>` : ''}
       </select></label>
+      <p class="muted small">Todas as vozes falam inglês e português (o rótulo mostra só o sotaque original). Vozes da biblioteca do ElevenLabs, como a do ${esc(T().name)}, só funcionam no plano pago; no grátis o app usa a voz escolhida aqui ou a voz pronta "${eleven.FREE_FALLBACK_VOICE.name}".</p>
       <label class="field"><span>…ou cole o ID da voz</span><input type="text" id="elVoiceId" value="${esc(s.eleven.voiceId)}" placeholder="ID da voz" autocomplete="off" /></label>
       <div class="row"><button class="btn sm outline" id="elTest">${icon('volume-2')} Testar a voz</button></div>
       <p class="muted small" id="elInfo">Cada fala gasta créditos. Repetir o áudio não gasta de novo.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="set-h">${icon('download')} Instalar o app</h2>
+      ${isStandalone() ? '<p class="muted small">Você já está usando o EaglesIn instalado.</p>'
+        : `<p class="muted small">Coloca o EaglesIn na tela inicial, com o ícone do Pavio, abrindo em tela cheia.</p>
+      <button class="btn primary block" data-install-go>${icon('download')} Instalar o EaglesIn</button>
+      <p class="muted small" data-install-none>${isIOSDevice ? '' : 'Se o botão não abrir nada, use o menu do navegador (⋮) → <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.'}</p>`}
     </div>
 
     ${memoryCard()}
@@ -1354,25 +1420,31 @@ function renderSettings() {
     stopAudio(); setTalkState('speaking', true);
     try {
       await speakEleven('Hello! Ready to train your English? Bora!', { lang: 'en-US', rate: S().rate });
-      info.textContent = '✅ Voz do ElevenLabs funcionando.';
+      info.textContent = `✅ ElevenLabs funcionando, com a voz ${lastElevenVoice}.`;
     } catch (e) { info.textContent = '❌ ' + e.message; toast('❌ ' + e.message, 6000); }
     finally { b.disabled = false; setTalkState('speaking', false); }
   });
-  bind('elVoiceId', 'change', (e) => { s.eleven.voiceId = e.target.value.trim(); s.eleven.voiceName = ''; elevenOff = false; save(); renderSettings(); });
-  bind('elVoice', 'change', (e) => { const o = e.target.selectedOptions[0]; s.eleven.voiceId = e.target.value; s.eleven.voiceName = e.target.value ? o.textContent : ''; elevenOff = false; save(); renderSettings(); });
-  bind('elLoad', 'click', async () => {
+  bind('elVoiceId', 'change', (e) => { s.eleven.voiceId = e.target.value.trim(); s.eleven.voiceName = ''; elevenOff = false; libraryBlocked = false; save(); renderSettings(); });
+  bind('elVoice', 'change', (e) => { const o = e.target.selectedOptions[0]; s.eleven.voiceId = e.target.value; s.eleven.voiceName = e.target.value ? o.textContent.replace(/ \(.*\)$/, '') : ''; elevenOff = false; libraryBlocked = false; save(); renderSettings(); });
+  /* Lista as vozes da conta (não gasta créditos). Abre sozinha quando já há chave. */
+  const loadElVoices = async (quiet) => {
     s.eleven.key = $('#elKey').value.trim(); save();
-    if (!s.eleven.key) return toast('Cole a chave do ElevenLabs primeiro.');
+    if (!s.eleven.key) return quiet || toast('Cole a chave do ElevenLabs primeiro.');
     const b = $('#elLoad'); b.disabled = true; b.textContent = 'Carregando…';
     try {
       const [list, credits] = await Promise.all([eleven.listVoices(), eleven.creditsLeft()]);
       const sel = $('#elVoice'); if (!sel) return;
-      sel.innerHTML = `<option value="">— nenhuma (voz do navegador) —</option>` + list.map((v) => `<option value="${esc(v.id)}" ${v.id === s.eleven.voiceId ? 'selected' : ''}>${esc(v.name)}${v.info ? ' (' + esc(v.info) + ')' : ''}</option>`).join('');
+      const own = T().elevenVoice && !list.some((v) => v.id === T().elevenVoice)
+        ? `<option value="${esc(T().elevenVoice)}" ${s.eleven.voiceId === T().elevenVoice ? 'selected' : ''}>Voz própria do ${esc(T().name)} (biblioteca, exige plano pago)</option>` : '';
+      sel.innerHTML = `<option value="">— nenhuma (voz do navegador) —</option>${own}` + list.map((v) => `<option value="${esc(v.id)}" ${v.id === s.eleven.voiceId ? 'selected' : ''}>${esc(v.name)}${v.info ? ' (' + esc(v.info) + ')' : ''}</option>`).join('');
+      if (s.eleven.voiceId && !s.eleven.voiceName) { const f = list.find((v) => v.id === s.eleven.voiceId); if (f) { s.eleven.voiceName = f.name; save(); } }
       if (credits) $('#elInfo').textContent = `Créditos usados neste mês: ${credits.used.toLocaleString('pt-BR')} de ${credits.limit.toLocaleString('pt-BR')}.`;
-      toast(`✅ ${list.length} vozes carregadas.`);
-    } catch (e) { toast('❌ ' + e.message, 5000); }
+      if (!quiet) toast(`✅ ${list.length} vozes carregadas.`);
+    } catch (e) { if (!quiet) toast('❌ ' + e.message, 5000); else $('#elInfo').textContent = '❌ ' + e.message; }
     finally { if ($('#elLoad')) { $('#elLoad').disabled = false; $('#elLoad').textContent = 'Carregar vozes'; } }
-  });
+  };
+  bind('elLoad', 'click', () => loadElVoices(false));
+  if (s.eleven.key) loadElVoices(true);
 
   bind('exp', 'click', () => {
     const a = document.createElement('a');
@@ -1384,13 +1456,16 @@ function renderSettings() {
   bind('reset', 'click', () => { if (confirm('Apagar TODO o progresso e as configurações? Não dá pra desfazer.')) resetAll(); });
 
   const fillVoices = () => {
-    const sel = $('#voiceSel'); if (!sel) return;
-    const list = voice.listVoices('en-US');
-    sel.innerHTML = `<option value="">Automática (melhor disponível)</option>` + list.map((v) => `<option value="${esc(v.voiceURI)}" ${v.voiceURI === s.voiceURI ? 'selected' : ''}>${esc(v.name)} (${v.lang})</option>`).join('');
-    sel.onchange = () => { s.voiceURI = sel.value; save(); };
+    for (const [id, lang, key] of [['voiceSel', 'en-US', 'voiceURI'], ['voiceSelPt', 'pt-BR', 'voiceURIpt']]) {
+      const sel = $('#' + id); if (!sel) return;
+      const list = voice.listVoices(lang);
+      sel.innerHTML = `<option value="">Automática (melhor disponível)</option>` + list.map((v) => `<option value="${esc(v.voiceURI)}" ${v.voiceURI === s[key] ? 'selected' : ''}>${esc(v.name)} (${v.lang})</option>`).join('');
+      sel.onchange = () => { s[key] = sel.value; save(); };
+    }
   };
   fillVoices();
-  const t = setTimeout(fillVoices, 700); cleanups.push(() => clearTimeout(t));
+  // o iPhone entrega a lista de vozes com atraso
+  const t = setTimeout(fillVoices, 700), t2 = setTimeout(fillVoices, 2500); cleanups.push(() => { clearTimeout(t); clearTimeout(t2); });
 }
 
 /* ==========================================================

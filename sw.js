@@ -3,7 +3,7 @@
    Ao mudar qualquer arquivo, aumente CACHE_VERSION para
    forçar a atualização no celular.
    ========================================================== */
-const CACHE_VERSION = 'nuvem-v30';
+const CACHE_VERSION = 'nuvem-v31';
 const SHELL = [
   './',
   './index.html',
@@ -36,6 +36,8 @@ const SHELL = [
   './js/exercises.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/pavio-marca.png',
+  './icons/apple-touch-icon.png',
 ];
 
 self.addEventListener('install', (e) => {

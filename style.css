@@ -306,6 +306,7 @@ details.howto ol { padding-left: 1.2rem; }
 /* Foto do professor: recorta em círculo focando o rosto. */
 .avatar img, .brand-face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; display: block; user-select: none; transform: scale(var(--z, 1)); }
 .brand-face { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; }
+.brand-face img { object-position: 50% 50%; transform: none; } /* marca do Pavio já vem recortada em círculo */
 
 /* ---- Variações de humor (animações) ----
    neutra: respira · feliz: pula · orgulhosa: comemora
@@ -611,6 +612,14 @@ button.mini-card:active { transform: scale(.97); }
 .mini-go { display: inline-flex; align-items: center; gap: 2px; font-size: var(--fs-sm); font-weight: 700; color: var(--link); }
 
 .rec-card { display: flex; align-items: flex-start; gap: var(--sp-3); }
+/* Instalar o app */
+.install-card { display: flex; align-items: center; gap: var(--sp-2); }
+.install-card .btn { flex: none; white-space: nowrap; }
+.install-card img { border-radius: 50%; flex: none; }
+.install-card .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.install-card .icon-btn { flex: none; }
+.install-steps { padding-left: 1.2rem; margin: var(--sp-3) 0; display: grid; gap: var(--sp-2); }
+.install-steps li { line-height: 1.45; }
 .section-head + .hscroll + .rec-card { margin-top: var(--sp-2); }
 .rec-card p { margin: 4px 0 var(--sp-2); }
 .talk-cta {

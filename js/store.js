@@ -62,6 +62,7 @@ function defaults() {
       autoListen: false,
       pavioMotion: true,      // Pavio se mexe mesmo com "reduzir movimento"/"efeitos de animação" desligados no sistema
       voiceURI: '',
+      voiceURIpt: '',         // voz do aparelho para o português (bronca), quando não há ElevenLabs
       eleven: { key: '', voiceId: '', voiceName: '' },
       reminder: { enabled: false, time: '19:00' },
       days: [true, true, true, true, true, true, true], // dom..sáb
