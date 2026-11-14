@@ -183,6 +183,15 @@ Na abertura da conversa ele puxa assunto pelo que lembra.
 - **Fora da memória:** dados sensíveis (saúde, religião, documentos, endereço, telefone) e o que é dito nas Simulações.
 - **Controle:** em **Configurações → 🧠 Memória do aluno** você vê tudo, apaga item por item, apaga a memória inteira ou desliga.
 
+### Primeiro acesso, login e modo foco (2026-11-14)
+- **Primeiro acesso (`js/onboarding.js`):** 18 telas com o Pavio (apresentação, preferência de áudio, nível, desafio de fala, objetivos, plano, humor, conversa de demonstração, convite para conta). Quem já tinha progresso ou chave não vê. Dá para rever em **Configurações → Conta e apresentação**.
+  - Não usa IA paga: a conversa de demonstração tem roteiro fixo, e o desafio de fala compara só o **texto** do reconhecimento de voz do navegador (não é avaliação de pronúncia).
+  - As respostas ficam em `state.onboarding` neste aparelho, sem áudio, e expiram em 7 dias se a apresentação não for concluída. Ao concluir, viram preferências (áudio, plano, humor) e fatos da memória do aluno.
+- **Login (`js/auth.js`):** botão "Entrar com o Google" pelo Firebase Authentication. **Ainda desligado:** falta criar o projeto e colar o `firebaseConfig` em `FIREBASE_CONFIG` (passo a passo no topo do arquivo). O login só identifica a pessoa; o progresso continua no aparelho.
+- **Modo foco:** aula, prova, primeiro acesso e login escondem o cabeçalho e as abas. O Pavio fica de corpo inteiro e o que ele fala em português aparece num balão.
+- **Áudio:** `settings.audioPref` = `all` (fala tudo), `speech` (só o inglês dos exercícios) ou `off` (só o botão Ouvir).
+- **Memória de vídeo:** no máximo 3 poses do Pavio ficam carregadas além da neutra; as outras são liberadas e voltam do cache.
+
 ### Pavio em 3D
 Para ligar: **Configurações → Professor → Pavio em 3D** (ou o botão **3D** na tela inicial).
 - **Modelo em uso:** `icons/pavio3d/pavio-corpo.glb` (corpo inteiro, ~59 mil triângulos, 4,6 MB) e `icons/pavio3d/pavio-rostos.glb` (10 cabeças de expressão, 3,1 MB). Os dois foram gerados a partir dos originais do Tripo com `@gltf-transform` (simplificação, texturas JPEG de 2048 px, quantização).

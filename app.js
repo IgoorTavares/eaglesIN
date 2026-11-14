@@ -24,6 +24,8 @@ import { CEFR, SKILLS, getLevel, getUnit, getConvo, parseVocab } from './js/curr
 import { streak, recordConvo, updateSkill, lessonDone, PASS, userLevel } from './js/store.js';
 import { dueCards } from './js/srs.js';
 import * as learn from './js/learn.js';
+import * as onb from './js/onboarding.js';
+import * as auth from './js/auth.js';
 
 /* ---------------------------------------------------------- helpers */
 const $ = (s, el = document) => el.querySelector(s);
@@ -89,7 +91,11 @@ const use3d = () => S().pavio3d && webglOK() && rState.get(pavio3d) !== false;
 const R = () => { const id = getTeacher(S().teacher).renderer; return id === 'pavio' && use3d() ? pavio3d : RENDERERS[id] || stage; };
 const rState = new Map(); // renderer -> true (pronto) | false (falhou)
 const rOK = () => rState.get(R()) === true;
-const STAGE_MODE = { home: 'full', chat: 'bust', lesson: 'full', exam: 'full', 'lesson-c': 'bust', 'exam-c': 'bust' };
+const STAGE_MODE = { home: 'full', chat: 'bust', lesson: 'full', exam: 'full', 'lesson-c': 'full', 'exam-c': 'full', welcome: 'full' };
+/* Telas em modo foco: sem cabeçalho nem barra de abas (aula, prova, primeiro acesso, login). */
+const FOCUS_ROUTES = new Set(['lesson-c', 'exam-c', 'welcome', 'login']);
+/* Balão de fala do Pavio (aulas e primeiro acesso): mostra o que ele diz em português. */
+function bubble(text) { const b = $('#pavioBubble'); if (!b) return; b.textContent = text || ''; b.classList.toggle('hidden', !text); if (text) { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); } }
 async function ensureStage() {
   const r = R();
   if (rState.has(r)) return rState.get(r);
@@ -161,9 +167,15 @@ async function speakEleven(text, opts) {
 }
 /* parts: [{ text, lang?, mul? }]. Inglês e português usam o ElevenLabs se configurado (a mesma voz
    faz o inglês e a bronca); sem ele, ou se falhar, a voz do navegador. */
-async function say(parts, mood) {
+async function say(parts, mood, opts = {}) {
   const my = ++sayToken;
   if (mood) setMood(mood);
+  { const pt = parts.filter((p) => p.text && p.lang === 'pt-BR').map((p) => p.text).join(' '); if (pt && !opts.noBubble) bubble(pt); }
+  /* Preferência de áudio (primeiro acesso / Configurações): 'all' fala tudo; 'speech' só o inglês
+     dos exercícios; 'off' nada. opts.force = a pessoa tocou em "Ouvir" (sempre toca). */
+  const pref = opts.force ? 'all' : S().audioPref || 'all';
+  if (pref === 'off') return;
+  if (pref === 'speech') { parts = parts.filter((p) => (p.lang || 'en-US') !== 'pt-BR'); if (!parts.length) return; }
   setTalkState('speaking', true);
   if (rOK()) R().setTalking(true);
   try {
@@ -254,12 +266,14 @@ function route() {
   cleanups.forEach((f) => { try { f(); } catch {} });
   cleanups = [];
   voice.stopListening(); recorder.stopRecording(); stopAudio(); activity(null); setMood('neutra');
-  const [name, ...args] = (location.hash.slice(1) || 'home').split('/').map(decodeURIComponent);
+  let [name, ...args] = (location.hash.slice(1) || 'home').split('/').map(decodeURIComponent);
+  // Primeiro acesso: a apresentação do Pavio vem antes de tudo (menos do login).
+  if (onb.needsOnboarding() && name !== 'login') { name = 'welcome'; args = []; }
   const map = {
     home: renderHome, learn: learn.renderLearn, unit: learn.renderUnit, 'lesson-c': learn.renderLessonC, 'exam-c': learn.renderExamC,
     exams: learn.renderExams, srs: learn.renderSrs, retention: learn.renderRetention, talk: renderTalk,
     trail: renderTrail, theme: renderTheme, lesson: renderLesson, exam: renderExam, drill: renderDrill, chat: renderChat,
-    review: renderReview, progress: renderProgress, settings: renderSettings,
+    review: renderReview, progress: renderProgress, settings: renderSettings, welcome: onb.renderWelcome, login: renderLogin,
   };
   currentRoute = map[name] ? name : 'home';
   const tab = {
@@ -267,19 +281,20 @@ function route() {
     chat: 'talk', drill: 'review', srs: 'review', settings: '',
   }[currentRoute] ?? currentRoute;
   $$('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.go === tab));
+  document.body.classList.toggle('focus', FOCUS_ROUTES.has(currentRoute));
   updateChips();
   view.scrollTop = 0;
   map[currentRoute](...args);
   updateTrainbar();
   const mode = STAGE_MODE[currentRoute];
-  if (mode) ensureStage().then(() => { if ($('#stageBox')) mountStage(mode); });
+  if (mode) ensureStage().then(() => { if ($('#stageBox')) { mountStage(mode); if (currentRoute === 'welcome') onb.onStageReady(); } });
 }
 window.addEventListener('hashchange', route);
 document.addEventListener('click', (e) => {
   const g = e.target.closest('[data-go]');
   if (g) { e.preventDefault(); go(g.dataset.go === 'chat' ? 'chat/' + learn.nextConvo().id : g.dataset.go); return; }
   const s = e.target.closest('[data-say]');
-  if (s) { say([{ text: s.dataset.say }]); }
+  if (s) { say([{ text: s.dataset.say }], undefined, { force: true }); }
 });
 
 /* ==========================================================
@@ -340,6 +355,45 @@ document.addEventListener('click', (e) => {
   else if (e.target.closest('[data-install-x]')) { S().installDismissed = true; save(); refreshInstallUI(); }
 });
 
+/* ---------------------------------------------------------- privacidade e login */
+function showPrivacy() {
+  openModal(`<h2>${icon('lock')} Privacidade</h2>
+    <ul class="install-steps">
+      <li>Seu progresso, suas respostas e as chaves ficam <b>neste aparelho</b>.</li>
+      <li>Nas conversas e aulas, o texto e o áudio vão para o <b>Google Gemini</b>; a voz natural usa o <b>ElevenLabs</b>.</li>
+      <li>O reconhecimento de voz é do seu navegador, que pode enviar o áudio ao serviço dele.</li>
+      <li>O EaglesIn não guarda gravações. Você pode apagar tudo em Configurações.</li>
+    </ul>
+    <button class="btn primary block" id="privOk">Entendi</button>`);
+  $('#privOk').onclick = closeModal;
+}
+function renderLogin() {
+  const acc = state.account;
+  view.innerHTML = `
+    <div class="focus-bar"><button class="icon-btn sm" data-go="home" aria-label="Fechar">${icon('x')}</button><span class="grow"></span></div>
+    <div class="login-wrap">
+      <img class="login-mark" src="icons/pavio-marca.png" alt="" width="96" height="96" />
+      <h1 class="ob-title">${acc ? 'Você está conectado' : 'Entre no EaglesIn'}</h1>
+      <p class="ob-text">${acc ? esc(acc.name || acc.email || 'Conta Google') : 'Entre com a sua conta Google. Por enquanto, o progresso continua guardado neste aparelho.'}</p>
+      ${acc ? `<button class="btn block outline" id="logout">Sair da conta</button>`
+        : `<button class="btn block google-btn" id="gLogin"><svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.7-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.7-.4-3.9z"/></svg> Entrar com o Google</button>
+        <p class="muted small center" id="loginInfo">${auth.configured() ? '' : 'O login com Google ainda está sendo configurado. Por enquanto, seu progresso fica neste aparelho.'}</p>`}
+      <button class="link ob-alt" data-go="home">${acc ? 'Voltar para o app' : 'Continuar sem conta'}</button>
+      <p class="muted small center"><a href="#privacy" id="loginPriv">Privacidade</a></p>
+    </div>`;
+  $('#loginPriv').onclick = (e) => { e.preventDefault(); showPrivacy(); };
+  if ($('#logout')) $('#logout').onclick = async () => { await auth.signOut(); delete state.account; save(); toast('Você saiu da conta.'); route(); };
+  if ($('#gLogin')) $('#gLogin').onclick = async () => {
+    if (!auth.configured()) return toast('O login com Google ainda não está ligado. Use "Continuar sem conta".', 4500);
+    const b = $('#gLogin'); b.disabled = true;
+    try {
+      const u = await auth.signInWithGoogle();
+      state.account = { uid: u.uid, name: u.name, email: u.email, at: Date.now() }; save();
+      toast('Bem-vindo, ' + (u.name || 'aluno') + '!'); go('home');
+    } catch (e) { toast('Não deu para entrar: ' + (e.message || e), 5000); if ($('#gLogin')) $('#gLogin').disabled = false; }
+  };
+}
+
 function renderHome() {
   const t = today(), plan = currentPlan();
   const pct = Math.min(100, (t.seconds / goalSeconds()) * 100);
@@ -371,66 +425,18 @@ function renderHome() {
       </div>
     </section>
 
-    <div class="kpis">
-      <div class="kpi">${icon('flame')}<b>${st}</b><span>${st === 1 ? 'dia seguido' : 'dias seguidos'}</span></div>
-      <div class="kpi">${icon('star')}<b>${xp}</b><span>XP · nível ${ul.lvl}</span></div>
-      <div class="kpi"><div class="ring" style="--p:${Math.round(pct)}" role="img" aria-label="Meta de hoje: ${Math.round(pct)}%"><b>${Math.round(pct)}%</b></div><span>meta de hoje</span></div>
+    <div class="goal-line" role="img" aria-label="Meta de hoje: ${Math.round(pct)}%">
+      <span>Meta de hoje</span><span class="progress"><i style="width:${pct}%"></i></span><b>${Math.round(pct)}%</b>
     </div>
 
-    <button class="card level-card-home" data-go="learn">
-      <span class="lvl-badge">${lv.id}</span>
-      <span class="grow">
-        <span class="lp-row"><b>${esc(lv.name)}</b><b class="lp-pct">${lessonPct}%</b></span>
-        <span class="progress"><i style="width:${lessonPct}%"></i></span>
-        <span class="lp-row muted small"><span>Unidade ${cu.n}/6 · ${esc(cu.title)}</span><span>${lp.done}/${lp.total} aulas · ${lp.exams}/6 provas</span></span>
-      </span>
-      ${icon('chevron-right', 'ic-muted')}
-    </button>
-
-    <div class="section-head"><h2>Para hoje</h2><span class="muted small">${esc(wd.day)}</span></div>
-    <div class="hscroll" role="list">
-      <div class="mini-card accent" role="listitem">
-        <span class="mini-ico">${icon('target')}</span>
-        <b>Treino guiado</b>
-        <span class="muted small">${fmt(t.seconds)} de ${fmt(plan.total * 60)} · plano ${esc(plan.name)}</span>
-        <span class="progress"><i style="width:${pct}%"></i></span>
-        <button class="btn sm dark" id="startTrain">${train ? 'Continuar' : 'Começar'}</button>
-      </div>
-      <div class="mini-card" role="listitem">
-        <span class="mini-ico">${icon('compass')}</span>
-        <b>${esc(wd.focus)}</b>
-        <span class="muted small">Foco de ${esc(wd.day.toLowerCase())}</span>
-        <button class="btn sm" id="wdBtn">${esc(wdAction[0])}</button>
-      </div>
-      <button class="mini-card" data-go="srs" role="listitem">
-        <span class="mini-ico">${icon('repeat')}</span>
-        <b>Revisões</b>
-        <span class="muted small">${srsDue} ${srsDue === 1 ? 'cartão' : 'cartões'} para hoje</span>
-        <span class="mini-go">Revisar ${icon('chevron-right')}</span>
-      </button>
-      <button class="mini-card" data-go="review" role="listitem">
-        <span class="mini-ico">${icon('volume-2')}</span>
-        <b>Pronúncia</b>
-        <span class="muted small">${hard} ${hard === 1 ? 'palavra difícil' : 'palavras difíceis'}</span>
-        <span class="mini-go">Treinar ${icon('chevron-right')}</span>
-      </button>
+    <div class="home-list">
+      <button class="home-row" data-go="talk"><span class="mini-ico">${icon('mic')}</span><span class="grow"><b>Conversar com ${T().g === 'm' ? 'o' : 'a'} ${esc(T().name.replace('Professor ', ''))}</b><span class="muted small">Por voz ou texto</span></span>${icon('chevron-right', 'ic-muted')}</button>
+      <button class="home-row" id="startTrain"><span class="mini-ico">${icon('target')}</span><span class="grow"><b>Treino do dia</b><span class="muted small">${fmt(t.seconds)} de ${fmt(plan.total * 60)}</span></span>${icon('chevron-right', 'ic-muted')}</button>
+      <button class="home-row" data-go="srs"><span class="mini-ico">${icon('repeat')}</span><span class="grow"><b>Revisar</b><span class="muted small">${srsDue ? srsDue + (srsDue === 1 ? ' cartão para hoje' : ' cartões para hoje') : 'Nada pendente'}${hard ? ' · ' + hard + (hard === 1 ? ' palavra difícil' : ' palavras difíceis') : ''}</span></span>${icon('chevron-right', 'ic-muted')}</button>
+      ${!state.testDone ? `<button class="home-row" id="levelBtn"><span class="mini-ico">${icon('sparkles')}</span><span class="grow"><b>Teste de nível</b><span class="muted small">Opcional, para começar no nível certo</span></span>${icon('chevron-right', 'ic-muted')}</button>` : ''}
     </div>
 
-    <div class="card rec-card">
-      <span class="mini-ico">${icon('lightbulb')}</span>
-      <div class="grow"><b>Recomendação</b><p class="small">${esc(rec.text)}</p>
-        ${rec.action ? `<button class="btn sm outline" id="recBtn">Fazer agora</button>` : ''}</div>
-    </div>
-
-    ${installCardHTML()}
-
-    <button class="card talk-cta" data-go="talk">
-      <span class="talk-ico">${icon('mic')}</span>
-      <span class="grow"><b>Conversar com ${T().g === 'm' ? 'o' : 'a'} ${esc(T().name)}</b><span>Por voz ou texto, no seu nível (${lv.id})</span></span>
-      ${icon('chevron-right')}
-    </button>
-
-    ${!state.testDone ? `<div class="card rec-card"><span class="mini-ico">${icon('sparkles')}</span><div class="grow"><b>Diagnóstico</b><p class="muted small">Teste de nivelamento opcional para começar no nível certo (A1 a C1).</p><button class="btn sm" id="levelBtn">Fazer teste de nível</button></div></div>` : ''}`;
+    ${installCardHTML()}`;
   refreshInstallUI();
   $('#ctaGo').onclick = () => go(nl ? 'lesson-c/' + nl.id : 'exam-c/final/' + lv.id);
   if ($('#stage3d')) $('#stage3d').onclick = () => {
@@ -446,7 +452,7 @@ function renderHome() {
     if (a === 'exam') return go('exam-c/unit/' + cu.id);
     go(a);
   };
-  $('#wdBtn').onclick = () => act(wd.action === 'lesson' ? 'lesson' : wdAction[1]);
+  if ($('#wdBtn')) $('#wdBtn').onclick = () => act(wd.action === 'lesson' ? 'lesson' : wdAction[1]);
   if ($('#recBtn')) $('#recBtn').onclick = () => act(rec.action);
   if ($('#levelBtn')) $('#levelBtn').onclick = renderLevelTest;
 }
@@ -1319,6 +1325,11 @@ function renderSettings() {
     <div class="card">
       <h2 class="set-h">${icon('volume-2')} Voz</h2>
       <label class="field"><span>Velocidade: <b id="rateVal">${s.rate.toFixed(2)}x</b></span><input type="range" id="rate" min="0.7" max="1.2" step="0.05" value="${s.rate}" /></label>
+      <label class="field"><span>Quando o professor fala</span><select id="audioPref">
+        <option value="all" ${(s.audioPref || 'all') === 'all' ? 'selected' : ''}>Fala tudo (inglês e comentários)</option>
+        <option value="speech" ${s.audioPref === 'speech' ? 'selected' : ''}>Só o inglês dos exercícios</option>
+        <option value="off" ${s.audioPref === 'off' ? 'selected' : ''}>Sem áudio (só o botão Ouvir)</option>
+      </select></label>
       <label class="field"><span>Voz do aparelho em inglês (reserva)</span><select id="voiceSel"></select></label>
       <label class="field"><span>Voz do aparelho em português (reserva)</span><select id="voiceSelPt"></select></label>
       <button class="btn block" id="testVoice">Testar voz</button>
@@ -1337,6 +1348,12 @@ function renderSettings() {
       <label class="field"><span>…ou cole o ID da voz</span><input type="text" id="elVoiceId" value="${esc(s.eleven.voiceId)}" placeholder="ID da voz" autocomplete="off" /></label>
       <div class="row"><button class="btn sm outline" id="elTest">${icon('volume-2')} Testar a voz</button></div>
       <p class="muted small" id="elInfo">Cada fala gasta créditos. Repetir o áudio não gasta de novo.</p>
+    </div>
+
+    <div class="card">
+      <h2 class="set-h">${icon('sparkles')} Conta e apresentação</h2>
+      <p class="muted small">${state.account ? 'Conectado como ' + esc(state.account.name || state.account.email || 'conta Google') + '.' : 'Sem conta: seu progresso fica só neste aparelho.'}</p>
+      <div class="row wrap"><button class="btn sm" data-go="login">${state.account ? 'Minha conta' : 'Entrar com o Google'}</button><button class="btn sm outline" id="redoOb">Ver a apresentação do Pavio de novo</button></div>
     </div>
 
     <div class="card">
@@ -1406,6 +1423,8 @@ function renderSettings() {
   $('#memClear')?.addEventListener('click', () => { if (confirm('Apagar tudo o que o professor lembra de você? (Progresso e notas continuam.)')) { mem.clearMemory(); toast('Memória apagada.'); renderSettings(); } });
   bind('autoListen', 'change', (e) => { s.autoListen = e.target.checked; save(); });
 
+  bind('audioPref', 'change', (e) => { s.audioPref = e.target.value; save(); if (s.audioPref === 'off') stopAudio(); });
+  bind('redoOb', 'click', () => { if (confirm('Rever a apresentação? Seu progresso nas aulas não muda.')) onb.restartOnboarding(); });
   bind('pavioMotion', 'change', (e) => {
     s.pavioMotion = e.target.checked; save(); applyTheme();
     for (const r of Object.values(RENDERERS)) if (rState.get(r)) r.apply?.();
@@ -1501,10 +1520,15 @@ try {
   if (cfg.ELEVENLABS_VOICE_ID && !S().eleven.voiceId) { S().eleven.voiceId = cfg.ELEVENLABS_VOICE_ID; save(); }
 } catch { /* sem arquivo local: a chave é colada nas Configurações */ }
 
+onb.initOnboarding({
+  view, $, $, esc, icon, toast, go, say, stopAudio, setMood, gesture, activity, endActivity, stageHost, bubble,
+  applyPrefs: applyTheme, showPrivacy,
+  preload: (m) => { if (rOK()) R().preloadMood?.(emo.toEmotion(m)); },
+});
 learn.initLearn({
   view, $, $$, esc, toast, go, route, say, hear, setMood, gesture, stageHost, stopAudio, canUseMic, activity, endActivity, liveCheck,
   S, T, nextStageBtn, startConvo, levelTest: renderLevelTest, stopRecording: () => recorder.stopRecording(),
-  reactAnswer, resetRun: emo.resetRun,
+  reactAnswer, resetRun: emo.resetRun, bubble,
 });
 route();
 checkReminder();

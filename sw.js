@@ -3,7 +3,7 @@
    Ao mudar qualquer arquivo, aumente CACHE_VERSION para
    forçar a atualização no celular.
    ========================================================== */
-const CACHE_VERSION = 'nuvem-v31';
+const CACHE_VERSION = 'nuvem-v32';
 const SHELL = [
   './',
   './index.html',
@@ -16,6 +16,8 @@ const SHELL = [
   './js/mascot.js',
   './js/curriculum.js',
   './js/learn.js',
+  './js/onboarding.js',
+  './js/auth.js',
   './icons/mascot/happy.png',
   './icons/mascot/storm.png',
   './js/emotion.js',

@@ -1144,3 +1144,90 @@ textarea { width: 100%; margin-top: 6px; padding: 10px; border-radius: 12px; bor
   background: rgba(8, 11, 9, .72); color: #f7b84b; pointer-events: none;
 }
 .pavio.is-offline .pv3-stage { filter: grayscale(.85); }
+
+/* ============================================================
+   Modo foco (aula, prova, primeiro acesso): sem cabeçalho nem abas.
+   O Pavio é o protagonista: palco grande, balão de fala, uma coisa por tela.
+   ============================================================ */
+body.focus .topbar, body.focus .tabbar, body.focus .trainbar { display: none !important; }
+body.focus .view { padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+.focus-bar { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
+.focus-bar .stepper { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin: 0; overflow: visible; }
+.focus-bar .stepper.steps-4 { grid-template-columns: repeat(4, 1fr); }
+.focus-bar .stepper span { height: 6px; padding: 0; border: 0; border-radius: var(--r-pill); background: var(--card2); transition: background var(--t-med); }
+.focus-bar .stepper span.done { background: var(--green); }
+.focus-bar .stepper span.on { background: var(--green-bright); box-shadow: 0 0 10px var(--glow); }
+.focus-count { font-size: .8rem; font-weight: 700; color: var(--muted); min-width: 2.2em; text-align: right; font-variant-numeric: tabular-nums; }
+.pavio-stage { position: relative; margin-bottom: var(--sp-3); }
+.pavio-stage .stage-box.full.lesson-stage { height: clamp(190px, 30vh, 280px); }
+.pavio-stage::after { content: ""; position: absolute; left: 50%; bottom: 6px; width: 46%; height: 16px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(34, 197, 94, .28), transparent); pointer-events: none; z-index: 0; }
+.pavio-bubble {
+  position: relative; margin: 2px auto 0; max-width: 34rem; padding: 10px 14px; border-radius: 16px;
+  background: var(--card); border: 1px solid var(--line); font-weight: 600; line-height: 1.4; text-align: center;
+}
+.pavio-bubble::before { content: ""; position: absolute; left: 50%; top: -7px; width: 12px; height: 12px; transform: translateX(-50%) rotate(45deg); background: var(--card); border-left: 1px solid var(--line); border-top: 1px solid var(--line); }
+.pavio-bubble.pop { animation: bubble-pop .28s ease-out; }
+@keyframes bubble-pop { from { transform: scale(.94) translateY(4px); opacity: 0; } to { transform: none; opacity: 1; } }
+.step-plain { padding: 0 2px; }
+.step-title { margin: 2px 0 6px; font-size: 1.6rem; }
+.step-card .eyebrow { color: var(--accent-strong); }
+.ex-count { font-size: .78rem; font-weight: 700; color: var(--muted); letter-spacing: .02em; margin-bottom: 8px; }
+body.focus #stepNext, body.focus #nextEx { position: sticky; bottom: 10px; z-index: 5; box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
+@media (prefers-reduced-motion: reduce) { .pavio-bubble.pop { animation: none; } }
+/* Início minimalista: Pavio maior, meta numa linha e atalhos em lista */
+.home-stage-wrap { height: clamp(260px, 38vh, 360px); }
+.goal-line { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-4) 2px; font-size: var(--fs-sm); color: var(--muted); }
+.goal-line .progress { flex: 1; }
+.goal-line b { color: var(--text); font-variant-numeric: tabular-nums; }
+.home-list { display: grid; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: var(--sp-3); }
+.home-row { display: flex; align-items: center; gap: var(--sp-3); padding: 14px var(--sp-4); background: none; border: 0; border-top: 1px solid var(--line); color: inherit; text-align: left; font: inherit; cursor: pointer; min-height: 60px; }
+.home-row:first-child { border-top: 0; }
+.home-row .grow { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.home-row:active { background: var(--card2); }
+@media (hover: hover) { .home-row:hover { background: var(--card2); } }
+/* ============================================================
+   Primeiro acesso (onboarding) e login
+   ============================================================ */
+.ob-bar .ob-progress { flex: 1; height: 8px; }
+.ob-bar .ob-progress i { transition: width .45s cubic-bezier(.2, .8, .2, 1); }
+.ob-skip { font-size: var(--fs-sm); color: var(--muted); padding: 6px 2px; }
+.ob-stage .stage-box.full.lesson-stage.ob-pavio { height: clamp(230px, 40vh, 400px); }
+.ob-body { max-width: 34rem; margin: 0 auto; display: flex; flex-direction: column; gap: var(--sp-3); padding-bottom: var(--sp-4); }
+.ob-body.ob-in { animation: ob-in .32s ease-out; }
+@keyframes ob-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.ob-title { font-family: var(--font-display); font-size: clamp(1.45rem, 5.2vw, 1.9rem); line-height: 1.15; letter-spacing: -.02em; margin: 0; text-align: center; text-wrap: balance; }
+.ob-text { margin: 0; text-align: center; color: var(--muted); font-size: 1.02rem; line-height: 1.5; text-wrap: pretty; }
+.ob-cta { min-height: 54px; font-size: 1.05rem; margin-top: var(--sp-2); }
+.ob-alt { align-self: center; padding: 10px; color: var(--muted); font-weight: 600; }
+.ob-options { display: grid; gap: var(--sp-2); }
+.ob-options.two { grid-template-columns: 1fr 1fr; }
+.ob-opt {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start; text-align: left; min-height: 56px; justify-content: center;
+  padding: 12px 16px; border-radius: 16px; background: var(--card); border: 1.5px solid var(--line); color: inherit; font: inherit; cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast), transform var(--t-fast);
+}
+.ob-opt span { font-size: var(--fs-sm); color: var(--muted); }
+.ob-opt.on { border-color: var(--green-bright); background: color-mix(in srgb, var(--green) 16%, var(--card)); }
+.ob-opt:active { transform: scale(.985); }
+.ob-phrase { text-align: center; font-size: 1.35rem; font-weight: 800; line-height: 1.3; padding: var(--sp-4); border-radius: var(--radius); background: var(--card); border: 1px solid var(--line); }
+.ob-dock { justify-content: center; margin-top: var(--sp-2); }
+.ob-heard { min-height: 1.5em; text-align: center; color: var(--muted); }
+.ob-heard .feedback { text-align: left; color: var(--text); }
+.ob-badge { align-self: center; width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--green) 22%, transparent); color: var(--green-bright); border: 2px solid var(--green-bright); box-shadow: 0 0 28px var(--glow); }
+.ob-badge .ic { width: 34px; height: 34px; }
+.ob-plan { display: grid; gap: var(--sp-3); }
+.ob-sum { display: flex; align-items: center; gap: var(--sp-3); }
+.ob-sum .grow { display: flex; flex-direction: column; min-width: 0; }
+.ob-chat { display: flex; flex-direction: column; gap: 8px; }
+.ob-chat .msg { max-width: 88%; padding: 10px 14px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; align-self: flex-start; }
+.ob-chat .msg.user { align-self: flex-end; background: var(--green); color: var(--on-accent, #04130A); border-color: transparent; font-weight: 600; }
+.ob-reply { display: flex; align-items: center; gap: 8px; margin-top: var(--sp-2); }
+.ob-reply input { flex: 1; min-width: 0; }
+.mic.sm { width: 48px; height: 48px; flex: none; }
+.login-wrap { max-width: 26rem; margin: 6vh auto 0; display: flex; flex-direction: column; gap: var(--sp-3); align-items: stretch; }
+.login-mark { align-self: center; border-radius: 50%; box-shadow: 0 0 40px var(--glow); }
+.google-btn { min-height: 54px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #fff; color: #1f1f1f; border: 1px solid #dadce0; font-weight: 700; }
+.google-btn:disabled { opacity: .6; }
+@media (min-width: 900px) and (orientation: landscape) { .ob-stage .stage-box.full.lesson-stage.ob-pavio { height: 42vh; } }
+@media (max-height: 520px) { .ob-stage .stage-box.full.lesson-stage.ob-pavio, .pavio-stage .stage-box.full.lesson-stage { height: 150px; } }
+@media (prefers-reduced-motion: reduce) { .ob-body.ob-in { animation: none; } .ob-bar .ob-progress i { transition: none; } }
