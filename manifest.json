@@ -1,0 +1,17 @@
+{
+  "name": "EaglesIn",
+  "short_name": "EaglesIn",
+  "description": "Curso de inglês do A1 ao C2 com uma professora de IA debochada: aulas, provas e conversas por voz.",
+  "lang": "pt-BR",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#080B09",
+  "theme_color": "#080B09",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
