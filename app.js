@@ -145,25 +145,15 @@ function reactAnswer(ok, key) {
 let elevenOff = false; // vira true se o ElevenLabs ficar sem créditos ou recusar a chave
 function stopAudio() { sayToken++; setTalkState('speaking', false); voice.stopSpeaking(); eleven.stop(); for (const r of Object.values(RENDERERS)) if (rState.get(r)) r.setTalking(false); }
 let sayToken = 0;
-/* Fala com o ElevenLabs. Se a voz própria do professor for da biblioteca e a conta for grátis,
-   troca (uma vez, com aviso) pela voz escolhida nas Configurações ou por uma voz pronta grátis. */
+/* Fala com o ElevenLabs usando o ID de voz colado nas Configurações (vale para todos os personagens).
+   Se falhar, say() avisa e volta para a voz do aparelho. */
 let libraryBlocked = false;
 const elevenWarned = new Set(); // avisa cada tipo de falha só uma vez por sessão
 let lastElevenVoice = ''; // nome da voz que tocou por último (para o "Testar a voz")
 async function speakEleven(text, opts) {
-  const own = eleven.voiceFor(T());
-  const altId = S().eleven.voiceId && S().eleven.voiceId !== own ? S().eleven.voiceId : eleven.FREE_FALLBACK_VOICE.id;
-  const altName = altId === eleven.FREE_FALLBACK_VOICE.id ? eleven.FREE_FALLBACK_VOICE.name : (S().eleven.voiceName || 'escolhida nas Configurações');
-  if (!libraryBlocked) {
-    try { await eleven.speak(text, { ...opts, voiceId: own }); lastElevenVoice = own === T().elevenVoice ? `própria do ${T().name}` : (S().eleven.voiceName || own); return; }
-    catch (e) {
-      if (e.kind !== 'library') throw e;
-      libraryBlocked = true;
-      toast(`A voz própria do ${T().name} é da biblioteca do ElevenLabs e exige plano pago. Usando a voz ${altName}.`, 6000);
-    }
-  }
-  await eleven.speak(text, { ...opts, voiceId: altId });
-  lastElevenVoice = altName;
+  const id = eleven.voiceFor();
+  await eleven.speak(text, { ...opts, voiceId: id });
+  lastElevenVoice = S().eleven.voiceName || id;
 }
 /* parts: [{ text, lang?, mul? }]. Inglês e português usam o ElevenLabs se configurado (a mesma voz
    faz o inglês e a bronca); sem ele, ou se falhar, a voz do navegador. */
@@ -183,7 +173,7 @@ async function say(parts, mood, opts = {}) {
       if (!p.text || my !== sayToken) continue;
       const lang = p.lang || 'en-US';
       const rate = lang === 'pt-BR' ? 1.05 : S().rate * (p.mul || 1);
-      if (eleven.elevenReady(T()) && !elevenOff) {
+      if (eleven.elevenReady() && !elevenOff) {
         try { await speakEleven(p.text, { lang, rate, alive: () => my === sayToken }); continue; }
         catch (e) {
           if (my !== sayToken) continue;
@@ -260,6 +250,7 @@ let busy = false;
 let routeSeq = 0;
 /* Devolve uma função que diz se a tela atual ainda é a mesma (para cortar tarefas assíncronas). */
 const liveCheck = () => { const s = routeSeq; return () => s === routeSeq; };
+const modoClassico = () => { try { return sessionStorage.getItem('eaglesin-classico') === '1'; } catch { return false; } };
 function go(hash) { closeModal(); if (location.hash === '#' + hash) route(); else location.hash = hash; }
 function route() {
   routeSeq++;
@@ -269,6 +260,9 @@ function route() {
   let [name, ...args] = (location.hash.slice(1) || 'home').split('/').map(decodeURIComponent);
   // Primeiro acesso: a apresentação do Pavio vem antes de tudo (menos do login).
   if (onb.needsOnboarding() && name !== 'login') { name = 'welcome'; args = []; }
+  // Desde a G2 (2026-11-18) o jogo é a entrada do EaglesIn: o Início abre o jogo,
+  // a menos que a pessoa tenha escolhido o modo clássico nesta sessão (botão no jogo).
+  if (name === 'home' && !modoClassico()) { location.replace('jogo/'); return; }
   const map = {
     home: renderHome, learn: learn.renderLearn, unit: learn.renderUnit, 'lesson-c': learn.renderLessonC, 'exam-c': learn.renderExamC,
     exams: learn.renderExams, srs: learn.renderSrs, retention: learn.renderRetention, talk: renderTalk,
@@ -408,6 +402,7 @@ function renderHome() {
   const can3d = T().renderer === 'pavio' && webglOK();
   const dateLabel = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   view.innerHTML = `
+    <a class="banner jogo-banner" href="jogo/" onclick="try{sessionStorage.removeItem('eaglesin-classico')}catch(e){}">🎮 <b>Voltar ao jogo</b>: a viagem com o Pavio continua de onde você parou.</a>
     ${!S().apiKey ? `<div class="banner">🔑 Cole sua chave do Gemini em Configurações para o professor falar e te ouvir. <a href="#settings">Configurar</a></div>` : ''}
     ${!canUseMic() ? `<div class="banner info">🎙️ Microfone indisponível neste navegador. Use Chrome ou Safari em HTTPS.</div>` : ''}
     <section class="home-hero">
@@ -1330,22 +1325,23 @@ function renderSettings() {
         <option value="speech" ${s.audioPref === 'speech' ? 'selected' : ''}>Só o inglês dos exercícios</option>
         <option value="off" ${s.audioPref === 'off' ? 'selected' : ''}>Sem áudio (só o botão Ouvir)</option>
       </select></label>
-      <label class="field"><span>Voz do aparelho em inglês (reserva)</span><select id="voiceSel"></select></label>
-      <label class="field"><span>Voz do aparelho em português (reserva)</span><select id="voiceSelPt"></select></label>
+      <p class="muted small">Por padrão, todos os personagens falam com a voz do aparelho (grátis).</p>
+      <label class="field"><span>Voz do aparelho em inglês</span><select id="voiceSel"></select></label>
+      <label class="field"><span>Voz do aparelho em português</span><select id="voiceSelPt"></select></label>
       <button class="btn block" id="testVoice">Testar voz</button>
       <div class="switch"><span>Ler a bronca em português em voz alta</span><input type="checkbox" id="speakPt" ${s.speakPt ? 'checked' : ''} /></div>
       <div class="switch"><span>Abrir o microfone sozinho depois da fala do professor</span><input type="checkbox" id="autoListen" ${s.autoListen ? 'checked' : ''} /></div>
 
-      <h3 class="set-h" style="margin-top:18px">${icon('audio-lines')} Voz natural (ElevenLabs) <span class="tag ${eleven.elevenReady(T()) ? 'accent' : ''}">${eleven.elevenReady(T()) ? 'ativa' : 'opcional'}</span></h3>
-      ${T().elevenVoice ? `<p class="muted small">O ${esc(T().name)} tem voz própria no ElevenLabs: só falta a chave. A voz escolhida abaixo vale para os outros professores.</p>` : ''}
+      <h3 class="set-h" style="margin-top:18px">${icon('audio-lines')} Voz do ElevenLabs <span class="tag ${eleven.elevenReady() ? 'accent' : ''}">${eleven.elevenReady() ? 'ativa' : 'opcional'}</span></h3>
+      <p class="muted small">Quer outra voz? Cole sua chave e o <b>ID da voz</b> do ElevenLabs. Ela passa a valer para todos os personagens. Deixe o ID em branco para voltar à voz do aparelho.</p>
       <label class="field"><span>Chave do ElevenLabs (só neste aparelho)</span>
         <div class="row"><input type="password" id="elKey" value="${esc(s.eleven.key)}" placeholder="sk_..." autocomplete="off" /><button class="btn sm" id="elLoad">Carregar vozes</button></div></label>
-      <label class="field"><span>Voz</span><select id="elVoice">
-        <option value="">— nenhuma (voz do navegador) —</option>
-        ${s.eleven.voiceId ? `<option value="${esc(s.eleven.voiceId)}" selected>${esc(s.eleven.voiceId === T().elevenVoice ? `Voz própria do ${T().name} (biblioteca, exige plano pago)` : s.eleven.voiceName || 'Voz colada pelo ID')}</option>` : ''}
+      <label class="field"><span>ID da voz</span><input type="text" id="elVoiceId" value="${esc(s.eleven.voiceId)}" placeholder="ex.: pNInz6obpgDQGcFmaJgB" autocomplete="off" /></label>
+      <label class="field"><span>…ou escolha uma voz da sua conta</span><select id="elVoice">
+        <option value="">— nenhuma (voz do aparelho) —</option>
+        ${s.eleven.voiceId ? `<option value="${esc(s.eleven.voiceId)}" selected>${esc(s.eleven.voiceName || 'Voz colada pelo ID')}</option>` : ''}
       </select></label>
-      <p class="muted small">Todas as vozes falam inglês e português (o rótulo mostra só o sotaque original). Vozes da biblioteca do ElevenLabs, como a do ${esc(T().name)}, só funcionam no plano pago; no grátis o app usa a voz escolhida aqui ou a voz pronta "${eleven.FREE_FALLBACK_VOICE.name}".</p>
-      <label class="field"><span>…ou cole o ID da voz</span><input type="text" id="elVoiceId" value="${esc(s.eleven.voiceId)}" placeholder="ID da voz" autocomplete="off" /></label>
+      <p class="muted small">Todas as vozes falam inglês e português. Vozes da biblioteca do ElevenLabs só funcionam no plano pago; se a voz falhar, o app volta para a voz do aparelho.</p>
       <div class="row"><button class="btn sm outline" id="elTest">${icon('volume-2')} Testar a voz</button></div>
       <p class="muted small" id="elInfo">Cada fala gasta créditos. Repetir o áudio não gasta de novo.</p>
     </div>
@@ -1435,6 +1431,7 @@ function renderSettings() {
   bind('elTest', 'click', async () => {
     s.eleven.key = $('#elKey').value.trim(); save(); elevenOff = false;
     if (!s.eleven.key) return toast('Cole a chave do ElevenLabs primeiro.');
+    if (!s.eleven.voiceId) return toast('Cole o ID da voz (ou escolha uma voz da conta) primeiro.');
     const b = $('#elTest'), info = $('#elInfo'); b.disabled = true;
     stopAudio(); setTalkState('speaking', true);
     try {
@@ -1453,9 +1450,9 @@ function renderSettings() {
     try {
       const [list, credits] = await Promise.all([eleven.listVoices(), eleven.creditsLeft()]);
       const sel = $('#elVoice'); if (!sel) return;
-      const own = T().elevenVoice && !list.some((v) => v.id === T().elevenVoice)
-        ? `<option value="${esc(T().elevenVoice)}" ${s.eleven.voiceId === T().elevenVoice ? 'selected' : ''}>Voz própria do ${esc(T().name)} (biblioteca, exige plano pago)</option>` : '';
-      sel.innerHTML = `<option value="">— nenhuma (voz do navegador) —</option>${own}` + list.map((v) => `<option value="${esc(v.id)}" ${v.id === s.eleven.voiceId ? 'selected' : ''}>${esc(v.name)}${v.info ? ' (' + esc(v.info) + ')' : ''}</option>`).join('');
+      const own = s.eleven.voiceId && !list.some((v) => v.id === s.eleven.voiceId)
+        ? `<option value="${esc(s.eleven.voiceId)}" selected>${esc(s.eleven.voiceName || 'Voz colada pelo ID')}</option>` : '';
+      sel.innerHTML = `<option value="">— nenhuma (voz do aparelho) —</option>${own}` + list.map((v) => `<option value="${esc(v.id)}" ${v.id === s.eleven.voiceId ? 'selected' : ''}>${esc(v.name)}${v.info ? ' (' + esc(v.info) + ')' : ''}</option>`).join('');
       if (s.eleven.voiceId && !s.eleven.voiceName) { const f = list.find((v) => v.id === s.eleven.voiceId); if (f) { s.eleven.voiceName = f.name; save(); } }
       if (credits) $('#elInfo').textContent = `Créditos usados neste mês: ${credits.used.toLocaleString('pt-BR')} de ${credits.limit.toLocaleString('pt-BR')}.`;
       if (!quiet) toast(`✅ ${list.length} vozes carregadas.`);

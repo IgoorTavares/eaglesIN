@@ -1,9 +1,9 @@
 {
   "name": "EaglesIn",
   "short_name": "EaglesIn",
-  "description": "Curso de inglês do A1 ao C2 com o Professor Pavio, um professor de IA debochado: aulas, provas e conversas por voz.",
+  "description": "Aprenda inglês num jogo de viagem com o Professor Pavio, um professor de IA debochado: fases por voz, aulas, provas e conversas.",
   "lang": "pt-BR",
-  "start_url": "./index.html",
+  "start_url": "./jogo/",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

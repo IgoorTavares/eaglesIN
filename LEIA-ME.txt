@@ -1,0 +1,25 @@
+EaglesIn — atualização "A Viagem" (jogo G0–G5) — 18/11/2026
+================================================================
+
+32 arquivos, ~1,1 MB (cabe num único envio).
+Não inclui config.local.js (a chave do Gemini nunca vai para o GitHub).
+
+COMO SUBIR (site do GitHub, repositório eaglesIN):
+1. Abra o repositório > "Add file" > "Upload files".
+2. Arraste o CONTEÚDO desta pasta (as pastas jogo e js + os arquivos soltos),
+   não a pasta english-atualizacao-jogo em si. As pastas mantêm os caminhos.
+3. Não arraste este LEIA-ME.txt.
+4. Mensagem do commit: "Jogo A Viagem (G0-G5)" > "Commit changes".
+5. Espere 1–2 min (GitHub Pages) e abra o app. O cache novo é nuvem-v37;
+   se aparecer a versão antiga, feche e abra o app de novo.
+
+O QUE MUDA PARA QUEM USA:
+- O app passa a abrir direto no jogo (jogo/). Aulas, provas e conversa
+  continuam no botão "Modo clássico" da tela Mundos.
+- O progresso antigo vira moedas e mundos liberados (migração automática).
+
+Arquivos da raiz: app.js, manifest.json, sw.js, README.md
+Pasta js: ai.js, eleven.js, prompts.js
+Pasta jogo: index.html, jogo.js, jogo.css, nucleo.js, telas.js, fase.js,
+  fases.js, mundos.js, salvar.js, cenas.js, cenas2.js, personagens.js,
+  missao.js e sprites/ (12 imagens do Pavio)

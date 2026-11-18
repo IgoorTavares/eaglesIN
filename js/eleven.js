@@ -16,9 +16,10 @@ export class ElevenError extends Error {
 }
 
 const cfg = () => state.settings.eleven || {};
-/* Voz do professor: a dele (ex.: Pavio), senão a escolhida nas Configurações. */
-export const voiceFor = (teacher) => teacher?.elevenVoice || cfg().voiceId || '';
-export const elevenReady = (teacher) => !!(cfg().key && voiceFor(teacher));
+/* Padrão: todos os personagens falam com a voz do aparelho (grátis).
+   O ElevenLabs só entra quando a pessoa cola a chave E o ID de uma voz nas Configurações. */
+export const voiceFor = () => cfg().voiceId || '';
+export const elevenReady = () => !!(cfg().key && voiceFor());
 
 /* Um único player, "destravado" no primeiro toque na tela
    (iPhone e Android só deixam tocar áudio depois de um gesto). */
@@ -56,7 +57,7 @@ export const FREE_FALLBACK_VOICE = { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam' };
 function errorFor(status, detail) {
   const raw = JSON.stringify(detail || '');
   const d = typeof detail === 'string' ? detail : detail?.message || detail?.status || '';
-  if (/library voices|payment_required/i.test(raw)) return new ElevenError('library', 'O plano grátis do ElevenLabs não libera vozes da biblioteca pela API.');
+  if (/library voices|payment_required/i.test(raw)) return new ElevenError('library', 'Essa voz é da biblioteca do ElevenLabs e o plano grátis não libera pela API. Cole o ID de outra voz.');
   if (status === 401 && /quota/i.test(raw)) return new ElevenError('quota', 'Acabaram os créditos do ElevenLabs neste mês.');
   if (status === 401 && /permission/i.test(raw)) return new ElevenError('badkey', 'A chave do ElevenLabs não tem a permissão "Text to Speech". Crie uma chave com essa permissão ligada.');
   if (status === 401) return new ElevenError('badkey', `Chave do ElevenLabs recusada${d ? ': ' + String(d).slice(0, 140) : '.'}`);

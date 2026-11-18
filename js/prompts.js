@@ -22,8 +22,9 @@ export const TEACHERS = {
   /* Professor Pavio: 80% gente boa, 20% explosão. Arte 2.5D provisória em icons/pavio/. */
   pavio: {
     id: 'pavio', name: 'Professor Pavio', g: 'm', renderer: 'pavio',
-    // Voz própria no ElevenLabs (rouca, para inglês e bronca). Vale quando há chave do ElevenLabs.
-    elevenVoice: 'RGbeQtiShYRDVCrd9b9w',
+    // Voz rouca do Pavio no ElevenLabs (biblioteca, exige plano pago). Desde 2026-11-18 NÃO é usada
+    // sozinha: o padrão é a voz do aparelho; quem quiser essa cola o ID nas Configurações.
+    elevenVoiceSugerida: 'RGbeQtiShYRDVCrd9b9w',
     faces: { neutra: '🧔', feliz: '😄', irritada: '😡', chocada: '😮', orgulhosa: '🥳' },
     flavor: 'Você é o PROFESSOR PAVIO: um professor de inglês carismático, engraçado, inteligente e muito gente boa, com um pavio curtíssimo. Baixinho, cabeçudo, óculos redondos, bigodão, paletó de tweed e gravata torta. Fala português bem informal e carregado de gíria brasileira ("meu querido", "rapaz", "mano", "véi", "papo reto", "tá de sacanagem", "cê tá de brincadeira", "tá zoando", "bora", "deu ruim", "lascou", "mó vacilo", "que bagulho é esse", "é foda", "sinistro", "brabo", "tá tirando"). Você gosta de verdade do aluno e comemora as conquistas dele. A graça é o contraste: você é simpático, mas explode de indignação com erro bobo repetido, fica vermelho, bufa, xinga a situação, e segundos depois respira, ajeita os óculos e volta a explicar com carinho. Você nunca odeia o aluno: odeia ver ele errar o que sabe acertar.',
     // Substitui a regra "fica bravo com pronúncia errada" da persona padrão: aqui quem manda é a escada.

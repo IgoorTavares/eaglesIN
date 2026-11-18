@@ -3,8 +3,14 @@
    Ao mudar qualquer arquivo, aumente CACHE_VERSION para
    forçar a atualização no celular.
    ========================================================== */
-const CACHE_VERSION = 'nuvem-v32';
+const CACHE_VERSION = 'nuvem-v37';
 const SHELL = [
+  // O jogo (entrada do app desde a G2)
+  './jogo/',
+  './jogo/index.html',
+  ...['jogo.css', 'jogo.js', 'nucleo.js', 'telas.js', 'fase.js', 'fases.js', 'mundos.js', 'salvar.js', 'cenas.js', 'cenas2.js', 'personagens.js', 'missao.js'].map((f) => `./jogo/${f}`),
+  ...['neutro', 'alegre', 'bravo', 'bufando', 'cansado', 'debochado', 'decepcionado', 'escutando', 'impaciente', 'pensando', 'raivoso', 'surpreso']
+    .map((p) => `./jogo/sprites/pavio-${p}.webp`),
   './',
   './index.html',
   './style.css',
@@ -78,7 +84,7 @@ self.addEventListener('notificationclick', (e) => {
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) if ('focus' in c) return c.focus();
-      return self.clients.openWindow('./index.html#home');
+      return self.clients.openWindow('./jogo/');
     })
   );
 });

@@ -174,6 +174,29 @@ export async function judgePronunciation(expected, audio) {
   return obj;
 }
 
+/* Missão do jogo: o NPC responde em inglês e o Pavio comenta em português. */
+const MISSAO_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    fala: { type: 'STRING' },
+    traducao: { type: 'STRING' },
+    pavio: { type: 'STRING' },
+    pose: { type: 'STRING' },
+    correcao: { type: 'OBJECT', nullable: true, properties: { errado: { type: 'STRING' }, certo: { type: 'STRING' } } },
+    terminou: { type: 'BOOLEAN' },
+    nota: { type: 'NUMBER' },
+  },
+  required: ['fala', 'traducao', 'pavio', 'pose', 'terminou', 'nota'],
+};
+export async function missaoTurno(system, messages) {
+  const obj = await callJSON({ system, contents: toContents(messages), schema: MISSAO_SCHEMA, temperature: 0.9, maxTokens: 900 }, (o) => typeof o.fala === 'string' && o.fala.trim(), 14000);
+  if (obj.correcao && !obj.correcao.certo) obj.correcao = null;
+  obj.nota = Math.max(0, Math.min(10, Number(obj.nota) || 0));
+  obj.terminou = !!obj.terminou;
+  obj.pavio = String(obj.pavio || '');
+  return obj;
+}
+
 /* Resumo da sessão. */
 export async function sessionSummary(system, messages) {
   const contents = toContents(messages);

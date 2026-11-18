@@ -254,7 +254,7 @@ Como funciona:
   A voz natural só volta quando você reabrir o app ou mexer nas configurações.
 - **Cuidado com a chave:** ela fica só no aparelho e vale o mesmo cuidado da chave do Gemini.
   Para pré-configurar neste computador, use os campos `ELEVENLABS_API_KEY` e `ELEVENLABS_VOICE_ID` em `config.local.js`.
-- **Voz do Pavio:** ele tem voz própria (ID `RGbeQtiShYRDVCrd9b9w`, em `TEACHERS.pavio.elevenVoice` no `js/prompts.js`). Basta ter a chave do ElevenLabs.
+- **Voz (desde 2026-11-18):** todos os personagens usam a voz do aparelho por padrão. Para usar o ElevenLabs, cole a chave e o **ID da voz** em Configurações → Voz; vale para todos. A voz rouca sugerida para o Pavio é `RGbeQtiShYRDVCrd9b9w` (biblioteca: exige plano pago).
   A voz escolhida em Configurações vale para os outros professores.
   Vozes da biblioteca do ElevenLabs podem exigir plano pago para uso pela API; se a conta recusar, o app avisa e usa a voz do navegador.
 - **Escolha da voz:** use uma voz da biblioteca ou uma voz sua. Não clone a voz de dubladores ou de personagens.
