@@ -1,16 +1,21 @@
-﻿EaglesIn — correção: o app se atualiza sozinho (cache nuvem-v38)
-================================================================
+EaglesIn — voz natural do Gemini (cache nuvem-v40)
+===================================================
 
-3 arquivos. Suba no GitHub do mesmo jeito da última vez
-(Add file > Upload files), arrastando o CONTEÚDO desta pasta:
-  - app.js        (raiz)
-  - sw.js         (raiz)
-  - jogo/jogo.js  (pasta jogo — arraste a pasta jogo, ela só tem esse arquivo)
-Mensagem do commit: "App se atualiza sozinho (v38)".
+7 arquivos. Já inclui a mudança da voz da Nuvem (v39): se você ainda
+não subiu a pasta english-atualizacao-voz, pode pular ela e subir só esta.
 
-DEPOIS DE SUBIR (só desta vez):
-O celular ainda está com o código antigo, que não sabe se recarregar.
-Feche o app de verdade e abra 2 vezes. A partir daí, as próximas
-atualizações aparecem sozinhas: a tela pisca e recarrega.
-No meio de uma fase, missão, aula, prova ou conversa ele espera você
-sair da tela para não perder nada.
+Suba igual das outras vezes (Add file > Upload files), arrastando o
+CONTEÚDO desta pasta (as pastas jogo e js + app.js e sw.js):
+  - app.js, sw.js                         (raiz)
+  - jogo/fase.js, jogo/nucleo.js, jogo/telas.js
+  - js/eleven.js, js/vozgemini.js  (vozgemini.js é arquivo NOVO)
+Mensagem do commit: "Voz natural do Gemini (v40)".
+
+DEPOIS DE SUBIR, NO CELULAR:
+1. Abra o app (ele recarrega sozinho).
+2. Mundos > Configurações > "Testar voz natural".
+   - Se o Pavio falar com voz de gente: pronto.
+   - Se aparecer "chave recusada": a chave do Gemini no app está
+     inválida. Gere uma nova em aistudio.google.com e cole no app
+     (modo clássico > Configurações).
+   - Qualquer outra mensagem: me mande o texto que apareceu.

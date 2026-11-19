@@ -12,6 +12,7 @@ import {
 import * as voice from './js/voice.js';
 import * as recorder from './js/recorder.js';
 import * as eleven from './js/eleven.js';
+import { vozGeminiPronta, falaGemini } from './js/vozgemini.js';
 import * as mem from './js/memory.js';
 import { chatReply, sessionSummary, judgePronunciation, testKey, AIError, DEFAULT_MODEL } from './js/ai.js';
 import { buildSystemPrompt, buildSummaryPrompt, TEACHERS, getTeacher, CHAT_MODES, HUMOR, stateNote } from './js/prompts.js';
@@ -182,7 +183,13 @@ async function say(parts, mood, opts = {}) {
         }
       }
       if (my !== sayToken) continue;
-      await voice.speak(p.text, { lang, rate, voiceURI: S().voiceURI, voiceURIpt: S().voiceURIpt, male: T().g === 'm' });
+      // Voz natural do Gemini (padrão desde 2026-11-19), com a mesma chave do app. Se falhar, voz do aparelho.
+      if (vozGeminiPronta()) {
+        try { await falaGemini(p.text, { quem: 'pavio', lang, rate: lang === 'pt-BR' ? 1 : S().rate * (p.mul || 1), alive: () => my === sayToken }); continue; }
+        catch { if (my !== sayToken) continue; }
+      }
+      // Voz da Nuvem para todos os professores (2026-11-19): voz padrão do aparelho, sem engrossar.
+      await voice.speak(p.text, { lang, rate, voiceURI: S().voiceURI, voiceURIpt: S().voiceURIpt, male: false });
     }
   } finally { if (my === sayToken) { setTalkState('speaking', false); if (rOK()) R().setTalking(false); } }
 }

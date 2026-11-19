@@ -103,6 +103,11 @@ export function stop() { stopCurrent?.(); }
 export async function speak(text, { lang = 'en-US', rate = 1, alive, voiceId = cfg().voiceId } = {}) {
   const url = await synth(text, lang, voiceId);
   if (alive && !alive()) return; // a fala foi cancelada enquanto o áudio era gerado
+  return playURL(url, { rate });
+}
+
+/* Toca um áudio já pronto no player destravado (usado também pela voz do Gemini). */
+export function playURL(url, { rate = 1 } = {}) {
   stop();
   return new Promise((resolve, reject) => {
     let done = false;

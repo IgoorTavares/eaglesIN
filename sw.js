@@ -3,7 +3,7 @@
    Ao mudar qualquer arquivo, aumente CACHE_VERSION para
    forçar a atualização no celular.
    ========================================================== */
-const CACHE_VERSION = 'nuvem-v38';
+const CACHE_VERSION = 'nuvem-v40';
 const SHELL = [
   // O jogo (entrada do app desde a G2)
   './jogo/',
@@ -19,6 +19,7 @@ const SHELL = [
   './content-pop.js',
   './js/recorder.js',
   './js/eleven.js',
+  './js/vozgemini.js',
   './js/mascot.js',
   './js/curriculum.js',
   './js/learn.js',
@@ -57,7 +58,8 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k))))
+      // as falas do Gemini já geradas (voz-gemini-*) ficam: assim não gastam cota de novo
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_VERSION && !k.startsWith('voz-')).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });

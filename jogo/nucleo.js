@@ -5,7 +5,9 @@
    ========================================================== */
 import * as voz from '../js/voice.js';
 import * as eleven from '../js/eleven.js';
+import { vozGeminiPronta, falaGemini, prepara } from '../js/vozgemini.js';
 import { state as appState } from '../js/store.js';
+export { prepara };
 
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -106,7 +108,13 @@ export async function falar(quem, texto, { lang, balao } = {}) {
     try { await eleven.speak(limpo, { ...opts, alive: () => id === falaId }); foi = true; }
     catch (e) { if (['quota', 'badkey', 'voice', 'library'].includes(e.kind)) vozEstado.elevenFalhou = e.message; }
   }
-  if (!foi && id === falaId) await voz.speak(limpo, { ...opts, male: quem === 'pavio', voiceURI: appState.settings.voiceURI, voiceURIpt: appState.settings.voiceURIpt });
+  // Voz natural do Gemini (padrão desde 2026-11-19); se falhar, cai para a voz do aparelho.
+  if (!foi && id === falaId && vozGeminiPronta()) {
+    try { await falaGemini(limpo, { quem: quem === 'pavio' ? 'pavio' : 'npc', lang: opts.lang, alive: () => id === falaId }); foi = true; }
+    catch {}
+  }
+  // Voz da Nuvem para todos (pedido do usuário, 2026-11-19): a voz padrão do aparelho, sem engrossar o Pavio.
+  if (!foi && id === falaId) await voz.speak(limpo, { ...opts, male: false, voiceURI: appState.settings.voiceURI, voiceURIpt: appState.settings.voiceURIpt });
   else if (foi && (pref === 'off' || (pref === 'speech' && pt))) await sleep(Math.min(4000, 600 + limpo.length * 35)); // sem áudio: tempo de leitura
   if (id === falaId) { ator?.falando(false); if (quem === 'npc') $('.npc')?.classList.remove('falando'); }
   return id === falaId;

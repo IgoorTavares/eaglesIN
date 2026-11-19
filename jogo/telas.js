@@ -4,6 +4,7 @@
    barra de status (combustível = sequência de dias, nível e moedas).
    ========================================================== */
 import * as eleven from '../js/eleven.js';
+import { testaVoz } from '../js/vozgemini.js';
 import { state as appState, save as appSave } from '../js/store.js';
 import { $, $$, esc, sfx, vibra, Pavio, POSES, falar, calar, vozEstado, ICO, palco, bauSVG, chuvaDeMoedas, pick } from './nucleo.js';
 import { MAPA_W, MAPA_H } from './cenas.js';
@@ -172,6 +173,9 @@ export function abreConfig(app) {
     <label class="chave"><span><b>Efeitos sonoros</b><small>Moedas, erros, BOOM e música do chefão</small></span><input type="checkbox" id="cfSons" ${sv.pref('sons') ? 'checked' : ''}><i></i></label>
     <label class="chave"><span><b>Vibração</b><small>Treme o celular quando você erra e no BOOM</small></span><input type="checkbox" id="cfVibrar" ${sv.pref('vibrar') ? 'checked' : ''}><i></i></label>
     <h4 class="modal-sub">Voz dos personagens</h4>
+    <label class="chave"><span><b>Voz natural (Gemini)</b><small>Voz de gente de verdade, usando a chave do Gemini do app. Desligada: voz do aparelho.</small></span><input type="checkbox" id="cfVozG" ${appState.settings.vozGemini !== false ? 'checked' : ''}><i></i></label>
+    <button class="btn-sec" id="cfTestaG" style="margin:10px 0 4px">Testar voz natural</button>
+    <p class="modal-txt" id="cfInfoG"></p>
     <p class="modal-txt">Por padrão, o Pavio e todos os personagens falam com a <b>voz do aparelho</b> (grátis).</p>
     <p class="modal-txt">Para usar uma voz do <b>ElevenLabs</b> em todos eles, cole sua chave e o ID da voz. Deixe o ID em branco para voltar à voz do aparelho.</p>
     <label class="campo"><span>Chave do ElevenLabs (fica só neste aparelho)</span><input type="password" id="cfKey" value="${esc(el.key)}" placeholder="sk_..." autocomplete="off"></label>
@@ -182,6 +186,13 @@ export function abreConfig(app) {
   app.appendChild(fundo);
   $('#cfSons').onchange = (e) => { sv.mudaPref('sons', e.target.checked); sfx('toque'); };
   $('#cfVibrar').onchange = (e) => { sv.mudaPref('vibrar', e.target.checked); vibra(60); };
+  $('#cfVozG').onchange = (e) => { appState.settings.vozGemini = e.target.checked; appSave(); };
+  $('#cfTestaG').onclick = async (e) => {
+    const b = e.currentTarget, info = $('#cfInfoG');
+    calar(); b.disabled = true; info.textContent = 'Gerando a voz… (1 a 3 segundos)';
+    const r = await testaVoz();
+    b.disabled = false; info.textContent = r.ok ? r.msg : 'Não funcionou: ' + r.msg + ' Enquanto isso, fica a voz do aparelho.';
+  };
   const guarda = () => { el.key = $('#cfKey').value.trim(); el.voiceId = $('#cfVoz').value.trim(); el.voiceName = ''; vozEstado.elevenFalhou = ''; appSave(); };
   $('#cfFechar').onclick = () => { guarda(); fundo.remove(); };
   fundo.onclick = (e) => { if (e.target === fundo) { guarda(); fundo.remove(); } };

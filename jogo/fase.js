@@ -6,7 +6,7 @@
    ========================================================== */
 import * as voz from '../js/voice.js';
 import { TEACHERS } from '../js/prompts.js';
-import { $, $$, esc, pick, sleep, embaralha, sfx, vibra, Pavio, ESCADA, falar, calar, parecido, faltando, palavras, chuvaDeMoedas } from './nucleo.js';
+import { $, $$, esc, pick, sleep, embaralha, sfx, vibra, prepara, Pavio, ESCADA, falar, calar, parecido, faltando, palavras, chuvaDeMoedas } from './nucleo.js';
 import { malaSVG } from './cenas.js';
 import { CENAS } from './cenas2.js';
 import { NPCS } from './personagens.js';
@@ -130,6 +130,7 @@ export function telaFase(app, m, i, F, nav) {
       await pavioDiz(F.intro, 'impaciente');
     } else {
       pavio.pose('debochado', false); pavio.acao('pulo');
+      prepara(F.turnos[0]?.en, { quem: 'npc', lang: 'en-US' });
       await pavioDiz(F.intro, 'debochado');
     }
     if (vivo() && !acabou) proximo();
@@ -146,6 +147,9 @@ export function telaFase(app, m, i, F, nav) {
     balaoNpc.innerHTML = `<span class="quem">${esc(nomeNpc)}</span><p class="en">${esc(T.en)}</p><p class="pt" hidden>${esc(T.pt)}</p>
       <div class="balao-acoes"><button class="mini-btn" id="ouvir">Ouvir de novo</button><button class="mini-btn" id="traduzir">Traduzir</button></div>`;
     balaoNpc.hidden = false; balaoNpc.classList.remove('entra'); void balaoNpc.offsetWidth; balaoNpc.classList.add('entra');
+    // Voz do Gemini: já gera a resposta do atendente e a próxima fala enquanto a pessoa pensa.
+    prepara(T.resposta, { quem: 'npc', lang: 'en-US' });
+    prepara(F.turnos[turno + 1]?.en, { quem: 'npc', lang: 'en-US' });
     $('#ouvir').onclick = () => { calar(); npcDiz(T.en); };
     $('#traduzir').onclick = (e) => { const p = $('.pt', balaoNpc); p.hidden = !p.hidden; e.target.textContent = p.hidden ? 'Traduzir' : 'Esconder'; };
     const tipo = T.tipo === 'repita' && !voz.canListen ? 'monte' : T.tipo || 'dialogo';
