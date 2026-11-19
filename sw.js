@@ -3,12 +3,12 @@
    Ao mudar qualquer arquivo, aumente CACHE_VERSION para
    forçar a atualização no celular.
    ========================================================== */
-const CACHE_VERSION = 'nuvem-v44';
+const CACHE_VERSION = 'nuvem-v50';
 const SHELL = [
   // O jogo (entrada do app desde a G2)
   './jogo/',
   './jogo/index.html',
-  ...['jogo.css', 'jogo.js', 'nucleo.js', 'telas.js', 'fase.js', 'fases.js', 'mundos.js', 'salvar.js', 'cenas.js', 'cenas2.js', 'personagens.js', 'missao.js'].map((f) => `./jogo/${f}`),
+  ...['jogo.css', 'jogo.js', 'nucleo.js', 'telas.js', 'fase.js', 'fases.js', 'mundos.js', 'salvar.js', 'cenas.js', 'cenas2.js', 'personagens.js', 'missao.js', 'inicio.js'].map((f) => `./jogo/${f}`),
   ...['neutro', 'alegre', 'bravo', 'bufando', 'cansado', 'debochado', 'decepcionado', 'escutando', 'impaciente', 'pensando', 'raivoso', 'surpreso']
     .map((p) => `./jogo/sprites/pavio-${p}.webp`),
   './',
@@ -39,6 +39,7 @@ const SHELL = [
   './js/store.js',
   './js/voice.js',
   './js/prompts.js',
+  './js/falas-pavio.js',
   './js/ai.js',
   './js/pronunciation.js',
   './js/srs.js',

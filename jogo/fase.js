@@ -13,6 +13,7 @@ import { NPCS } from './personagens.js';
 import * as sv from './salvar.js';
 import { hudHTML, atualizaHud } from './telas.js';
 import { state as appState } from '../js/store.js';
+import * as FALAS from '../js/falas-pavio.js';
 
 const MOEDAS = { toque: 10, falou: 20, monte: 15, repita: 20, ouca: 12 };
 
@@ -70,6 +71,25 @@ async function coach(tela, passos) {
 }
 
 /* m = mundo, i = índice da parada, F = roteiro, nav = { mapa(), fase(i) } */
+/* Confete saindo de um ponto (a coroa da vitória). Respeita "reduzir movimento". */
+function confete(de) {
+  if (!de || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cores = ['#22C55E', '#F5B70A', '#F97316', '#16A34A', '#FDE047', '#38BDF8'];
+  const r = de.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  for (let k = 0; k < 36; k++) {
+    const c = document.createElement('i'); c.className = 'confete';
+    c.style.background = cores[k % cores.length]; c.style.left = cx + 'px'; c.style.top = cy + 'px';
+    document.body.appendChild(c);
+    const ang = Math.random() * Math.PI * 2, dist = 80 + Math.random() * 120;
+    const x = Math.cos(ang) * dist, y = Math.sin(ang) * dist - 60;
+    c.animate([
+      { transform: 'translate(0,0) rotate(0)', opacity: 1 },
+      { transform: `translate(${x}px, ${y}px) rotate(${Math.random() * 360}deg)`, opacity: 1, offset: .55 },
+      { transform: `translate(${x * 1.15}px, ${y + 220}px) rotate(${Math.random() * 720}deg)`, opacity: 0 },
+    ], { duration: 1400 + Math.random() * 500, easing: 'cubic-bezier(.2,.7,.4,1)' }).onfinish = () => c.remove();
+  }
+}
+
 export function telaFase(app, m, i, F, nav) {
   calar();
   const inicio = Date.now();
@@ -112,9 +132,28 @@ export function telaFase(app, m, i, F, nav) {
     f.style.left = (p.x / 200) * 100 + '%'; f.style.top = (p.y / 40) * 100 + '%';
   };
   posFaisca();
-  $('#sair').onclick = () => { sfx('toque'); acabou = true; calar(); nav.mapa(); };
+  const sai = () => { acabou = true; calar(); nav.mapa(); };
+  // Tentou sair no meio: o Pavio provoca antes (roteiro "desistir"). No Modo educado, sai direto.
+  $('#sair').onclick = () => {
+    sfx('toque');
+    if (acabou || appState.settings?.polite) return sai();
+    if ($('.sair-fundo', tela)) return;
+    const fundo = document.createElement('div');
+    fundo.className = 'modal-fundo sair-fundo';
+    fundo.innerHTML = `<div class="modal sair-modal" role="dialog" aria-label="Sair da fase">
+      <h3>${esc(pick(FALAS.DESISTIR))}</h3>
+      <div class="fim-botoes"><button class="btn-jogar" id="fica">Continuar a fase</button><button class="btn-sec" id="vaza">Sair mesmo</button></div></div>`;
+    tela.appendChild(fundo);
+    const poseAntes = pavio.atual;
+    pavio.pose('impaciente'); pavio.acao('treme');
+    $('#fica', fundo).onclick = () => { sfx('toque'); fundo.remove(); if (poseAntes) pavio.pose(poseAntes); };
+    $('#vaza', fundo).onclick = () => { fundo.remove(); sai(); };
+    fundo.onclick = (e) => { if (e.target === fundo) fundo.remove(); };
+  };
 
   const marcaProgresso = () => $$('.progresso i', app).forEach((el, k) => { el.className = k < turno ? 'ok' : k === turno ? 'agora' : ''; });
+  // Microfone sem voz: uma do roteiro "silêncio" (no Modo educado, um aviso simples).
+  const silencio = () => appState.settings?.polite ? 'Não ouvi nada. Tente de novo, mais perto do microfone.' : `${pick(FALAS.SILENCIO)} Fala mais perto do microfone.`;
   const pavioDiz = (texto, pose, lang = 'pt-BR') => { if (pose) pavio.pose(pose); return falar('pavio', texto, { lang, balao: balaoPv }); };
   const npcDiz = (texto) => falar('npc', texto);
 
@@ -209,20 +248,29 @@ export function telaFase(app, m, i, F, nav) {
     btn.classList.remove('ouvindo'); if (txtEl) txtEl.innerHTML = txt0;
     return typeof r === 'string' ? r : r?.text || '';
   }
+  // Opção com letra (A, B, C, D) e o visto que aparece quando acerta.
+  const opcaoHTML = (o, k, cls = '') => `<button class="opcao ${cls}" data-i="${k}"><span class="letra">${'ABCDEF'[k]}</span><span class="op-txt">${esc(o.t)}</span><svg class="op-ok" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#22C55E"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+  // Faixa verde de acerto: Pavio feliz + moedas ganhas.
+  function faixaAcerto(moedas) {
+    $('.faixa-acerto', caixa)?.remove();
+    caixa.insertAdjacentHTML('afterbegin', `<div class="faixa-acerto"><img src="sprites/pavio-alegre.webp" alt=""><span>${pick(['Correto, caralho!', 'Isso, porra!', 'Mandou bem, cacete!', 'Acertou, milagre!'])}</span><b class="mais"><span class="ico-moeda"></span>+${moedas}</b></div>`);
+    requestAnimationFrame(() => $('.faixa-acerto', caixa)?.classList.add('mostra'));
+  }
+  const tiraFaixa = () => $('.faixa-acerto', caixa)?.remove();
   const micHTML = (txt) => voz.canListen ? `<div class="resp-topo"><button class="btn-mic" id="mic" aria-label="Responder falando"><span class="ico-mic"></span></button><p id="micTxt">${txt}</p></div>` : '';
 
   /* ---------- tipo: diálogo ---------- */
   function montaDialogo(T) {
     const ops = embaralha([{ t: T.ok, certo: true }, ...T.errados.map(([t, porque]) => ({ t, porque }))]);
     painel.innerHTML = `${micHTML('<b>Fale em inglês</b> e ganhe 2× moedas<br>ou toque numa resposta')}
-      <div class="opcoes">${ops.map((o, k) => `<button class="opcao" data-i="${k}">${esc(o.t)}</button>`).join('')}</div>${botaoDica(ops)}`;
+      <div class="opcoes">${ops.map((o, k) => opcaoHTML(o, k)).join('')}</div>${botaoDica(ops)}`;
     sobe(); ligaDica(ops);
     $$('.opcao', painel).forEach((b) => b.onclick = () => { sfx('toque'); responde(T, ops[+b.dataset.i].certo, b, { porque: ops[+b.dataset.i].porque, moedas: MOEDAS.toque }); });
     const mic = $('#mic');
     if (mic) mic.onclick = async () => {
       const dito = await ouvir(mic, $('#micTxt'), '<b>Ouvindo…</b> fale em inglês<br>toque de novo para parar');
       if (dito === null) return;
-      if (!dito) return pavioDiz('Não ouvi porra nenhuma, meu querido. Fala de novo, mais perto do microfone.', 'pensando');
+      if (!dito) return pavioDiz(silencio(), 'impaciente');
       let best = -1, nota = 0;
       ops.forEach((o, k) => { const n = Math.max(parecido(dito, o.t), ...(o.certo ? (T.aceita || []).map((a) => parecido(dito, a) * 0.95) : [0])); if (n > nota) { nota = n; best = k; } });
       if (best < 0 || nota < 0.5) return pavioDiz(`Você disse "<i>${esc(dito)}</i>"? Não entendi caralho nenhum. Tenta de novo ou toca numa resposta.`, 'pensando');
@@ -234,7 +282,7 @@ export function telaFase(app, m, i, F, nav) {
   function montaOuca(T) {
     const ops = embaralha([{ t: T.ok, certo: true }, ...T.errados.map(([t, porque]) => ({ t, porque }))]);
     painel.innerHTML = `<p class="monte-instr"><span class="ico-ouvido"></span><b>${esc(T.pergunta || 'O que foi dito?')}</b><br><small>Não entendeu? Toque em "Ouvir de novo".</small></p>
-      <div class="opcoes">${ops.map((o, k) => `<button class="opcao pt" data-i="${k}">${esc(o.t)}</button>`).join('')}</div>${botaoDica(ops)}`;
+      <div class="opcoes">${ops.map((o, k) => opcaoHTML(o, k, 'pt')).join('')}</div>${botaoDica(ops)}`;
     sobe(); ligaDica(ops);
     $$('.opcao', painel).forEach((b) => b.onclick = () => { sfx('toque'); responde(T, ops[+b.dataset.i].certo, b, { porque: ops[+b.dataset.i].porque, moedas: MOEDAS.ouca, ouca: true }); });
   }
@@ -277,7 +325,7 @@ export function telaFase(app, m, i, F, nav) {
     mic.onclick = async () => {
       const dito = await ouvir(mic, $('#micTxt'), `<b>Ouvindo…</b><br><span class="alvo">${esc(T.ok)}</span>`);
       if (dito === null) return;
-      if (!dito) return pavioDiz('Não ouvi porra nenhuma. Fala mais alto, meu querido!', 'pensando');
+      if (!dito) return pavioDiz(silencio(), 'impaciente');
       const nota = parecido(dito, T.ok);
       const falta = faltando(dito, T.ok);
       responde(T, nota >= 0.7, mic, { porque: `Você disse "<i>${esc(dito)}</i>".${falta.length ? ` Faltou: <b>${esc(falta.join(', '))}</b>.` : ''} ${esc(T.dica || '')}`, moedas: MOEDAS.repita, dito, repita: true });
@@ -291,8 +339,16 @@ export function telaFase(app, m, i, F, nav) {
     $$('button', painel).forEach((b) => (b.disabled = true));
     if (certo) {
       alvoEl?.classList.add('certa'); sfx('certo');
+      balaoPv.hidden = true; // a bronca do erro anterior sai de cena
+      $$('.opcao', painel).forEach((b) => { if (b !== alvoEl) b.classList.add('apagada'); });
       ganhou += moedas; sv.ganhaMoedas(moedas);
+      faixaAcerto(moedas);
       chuvaDeMoedas(Math.round(moedas / 2.5), alvoEl || painel); setTimeout(atualizaHud, 900);
+      // "Próxima": pula o resto das falas e vai direto. Sem tocar, segue sozinho quando o Pavio termina.
+      let avancou = false;
+      const segue = () => { if (avancou || !vivo() || acabou) return; avancou = true; tiraFaixa(); proximo(); };
+      painel.insertAdjacentHTML('beforeend', '<button class="btn-jogar btn-proxima" id="proxima">Próxima <span aria-hidden="true">→</span></button>');
+      $('#proxima', painel).onclick = () => { sfx('toque'); calar(); segue(); };
       const voltou = seguidos >= 2; seguidos = 0;
       pavio.pose('alegre'); pavio.acao('pulo');
       turno++; marcaProgresso();
@@ -303,11 +359,12 @@ export function telaFase(app, m, i, F, nav) {
         : `${dito ? `<span class="voce">Você: “${esc(dito)}”</span><br>` : ''}${esc(T.resposta)}`;
       $('.balao-acoes', balaoNpc)?.remove(); $('.pt', balaoNpc)?.remove();
       await npcDiz(T.resposta);
-      if (!vivo() || acabou) return;
+      if (!vivo() || acabou || avancou) return;
       const extra = repita ? ' Que pronúncia, porra!' : dito && !monte ? ' E ainda falou, porra! Moeda em dobro.' : '';
       await pavioDiz((voltou ? pick(LINES.comeback) : pick(LINES.right)) + extra, 'alegre');
+      if (avancou) return;
       await sleep(250);
-      proximo();
+      segue();
     } else {
       alvoEl?.classList.add('errada'); sfx('erro'); vibra(70);
       erros++; seguidos++; vidas--;
@@ -373,9 +430,10 @@ export function telaFase(app, m, i, F, nav) {
       await sleep(1500);
       $('.carimbo-wrap', tela)?.remove(); tela.classList.remove('tremor');
     }
-    balaoNpc.hidden = true; sfx('vitoria');
+    balaoNpc.hidden = true; sfx('vitoria'); tiraFaixa();
     pavio.pose(est === 3 ? 'alegre' : est === 2 ? 'debochado' : 'cansado'); pavio.acao('pulo');
-    painel.innerHTML = `<div class="fim"><small>${r.recorde && !r.primeira ? 'Novo recorde!' : F.chefe ? 'Chefão derrotado' : 'Parada concluída'}</small><h3>${esc(F.titulo)}</h3>
+    const fita = est === 3 ? 'Mandou bem!' : est === 2 ? 'Passou!' : 'Por pouco!';
+    painel.innerHTML = `<div class="fim"><div class="fim-coroa"><svg class="coroa" aria-hidden="true"><use href="#g-coroa"/></svg><div class="fita">${fita}</div></div><small>${r.recorde && !r.primeira ? 'Novo recorde!' : F.chefe ? 'Chefão derrotado' : 'Parada concluída'}</small><h3>${esc(F.titulo)}</h3>
       <div class="estrelas-grandes">${[1, 2, 3].map((k) => `<i class="est ${k <= est ? 'on' : ''}" style="animation-delay:${k * 0.25}s"></i>`).join('')}</div>
       <div class="ganhos"><span><span class="ico-moeda"></span> +${ganhou}</span><span>XP +${xp}</span></div>
       ${r.metaBatida ? '<p class="fim-meta">Meta do dia batida! Combustível reabastecido.</p>' : ''}
@@ -383,6 +441,7 @@ export function telaFase(app, m, i, F, nav) {
       <div class="fim-botoes"><button class="btn-jogar" id="mapa">Continuar</button><button class="btn-sec" id="denovo">Jogar de novo</button></div></div>`;
     sobe();
     atualizaHud();
+    setTimeout(() => vivo() && confete($('.fim-coroa', painel)), 250);
     $('#mapa').onclick = () => { sfx('toque'); nav.mapa(); }; $('#denovo').onclick = () => nav.fase(i);
     const fala = est === 3 ? F.fim : est === 2 ? 'Passou, mas me fez suar, hein, cacete. ' + F.fim : 'Passou raspando, puta merda. Quase infartei. Mas passou, porra!';
     await falar('pavio', fala + (r.metaBatida ? ' E bateu a meta do dia, caralho!' : ''), { lang: 'pt-BR', balao: balaoPv });

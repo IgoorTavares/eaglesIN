@@ -16,6 +16,7 @@ import { vozGeminiPronta, falaGemini, prepara, esperaInicio } from './js/vozgemi
 import * as mem from './js/memory.js';
 import { chatReply, sessionSummary, judgePronunciation, testKey, AIError, DEFAULT_MODEL } from './js/ai.js';
 import { buildSystemPrompt, buildSummaryPrompt, TEACHERS, getTeacher, CHAT_MODES, HUMOR, stateNote } from './js/prompts.js';
+import * as FALAS from './js/falas-pavio.js';
 import { compare, tokenize, celebrateLine } from './js/pronunciation.js';
 import { stage } from './js/mascot.js';
 import { pavio } from './js/pavio.js';
@@ -84,12 +85,12 @@ function memoryCard() {
     </div>`;
 }
 
-/* ---------------------------------------------------------- tema (escuro é o padrão) */
+/* ---------------------------------------------------------- tema (claro é o padrão desde o redesign de 2026-11) */
 function applyTheme() {
-  const light = S().uiTheme === 'light';
+  const light = S().uiTheme !== 'dark';
   if (light) document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
   document.documentElement.dataset.pavioMotion = S().pavioMotion === false ? 'off' : 'on';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#F5F7F5' : '#080B09');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#EEF5F0' : '#080B09');
 }
 applyTheme();
 
@@ -321,7 +322,7 @@ function route() {
   };
   currentRoute = map[name] ? name : 'home';
   const tab = {
-    unit: 'learn', 'lesson-c': 'learn', 'exam-c': 'exams', retention: 'exams', trail: 'talk', theme: 'talk', lesson: 'talk', exam: 'talk',
+    unit: 'learn', 'lesson-c': 'learn', 'exam-c': 'learn', exams: 'learn', retention: 'learn', trail: 'talk', theme: 'talk', lesson: 'talk', exam: 'talk',
     chat: 'talk', drill: 'review', srs: 'review', settings: '',
   }[currentRoute] ?? currentRoute;
   $$('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.go === tab));
@@ -524,7 +525,7 @@ function renderTalk() {
       <h1>Conversar</h1>
       <p class="muted">Por voz ou texto. ${art} ${esc(t.name)} adapta vocabulário, velocidade e perguntas ao seu nível (${lv.id}).</p>
     </header>
-    <button class="card papo-card" id="papoLivre">
+    <button class="card papo-card ${/Pavio/.test(t.name) ? 'com-pavio' : ''}" id="papoLivre">
       <span class="papo-ico">${icon('message-circle')}</span>
       <span class="grow"><b>Papo livre com ${art.toLowerCase()} ${esc(t.name.replace('Professor ', ''))}</b>
         <span class="muted small">Chat sem roteiro: ${t.g === 'm' ? 'ele' : 'ela'} puxa assunto sobre qualquer coisa e você treina falando ou digitando.</span></span>
@@ -591,10 +592,17 @@ function startMode(mode) {
   };
   setTimeout(() => input.focus(), 100);
 }
+/* Roteiro do Pavio (js/falas-pavio.js): só com o Pavio, fora do Modo educado e do humor leve. */
+const pavioSolto = () => !S().polite && T().id === 'pavio' && T().humor !== 'leve';
+const naoOuvi = (normal) => (pavioSolto() ? pick(FALAS.SILENCIO) : normal);
 function greeting() {
   const h = new Date().getHours();
   if (S().polite) return h < 12 ? 'Bom dia! Pronto pra praticar?' : 'Oi! Vamos treinar um pouco?';
-  return pick(['Olha quem apareceu. Bora pro treino?', 'Seu inglês tá pedindo socorro. Vamos?', 'Hoje eu não vou pegar leve, hein.']);
+  if (pavioSolto() && Math.random() < 0.5) return pick(FALAS.SAUDACOES);
+  if (h < 5) return pick(['Acordado ainda, seu imbecil?', 'Vai dormir, arrombado. ...Tá, um treino e cama.']);
+  if (h < 12) return pick(['Bom dia, seu otário! Vamos estudar?', 'Bom dia, fdp. Demorou, mas entrou, hein?!']);
+  if (h < 18) return pick(['Boa tarde, arrombado! Bora estudar?', 'Boa tarde, seu animal. Achei que tinha fugido.']);
+  return pick(['Boa noite, caralho!', 'Boa noite, seu otário. Lembrou que existe inglês?']);
 }
 
 /* ==========================================================
@@ -834,14 +842,14 @@ async function hear(expected) {
     activity('listening');
     if (useGeminiEars()) {
       const audio = await recorder.record({ onLevel: (l) => { const i = interim(); if (i) i.innerHTML = `<span class="meter"><i style="width:${Math.round(l * 100)}%"></i></span>`; }, maxMs: 15000 });
-      if (!audio) { toast('Não ouvi nada. Fala mais alto!'); return null; }
+      if (!audio) { toast(naoOuvi('Não ouvi nada. Fala mais alto!')); return null; }
       const i = interim(); if (i) i.innerHTML = '';
       activity('thinking');
       const j = await judgePronunciation(expected, audio);
       return { nota: j.nota, erradas: j.erradas, dica: j.dica, transcricao: j.transcricao };
     }
     const r = await voice.listen({ onInterim: (t) => { const i = interim(); if (i) i.textContent = t; } });
-    if (!r.text) { toast('Não ouvi nada. Fala mais alto!'); return null; }
+    if (!r.text) { toast(naoOuvi('Não ouvi nada. Fala mais alto!')); return null; }
     const res = compare(expected, [r.text, ...r.alternatives], r.confidence);
     return { nota: res.score * 10, erradas: res.words.filter((w) => !w.ok).map((w) => w.text), dica: '', transcricao: r.text };
   } catch (e) {
@@ -1039,7 +1047,7 @@ async function startListening() {
   try {
     const r = await voice.listen({ onInterim: (t) => { if (interim) interim.textContent = t; } });
     endActivity('listening');
-    if (r.text) sendUser(r.text); else toast('Não ouvi nada. Tenta de novo!');
+    if (r.text) sendUser(r.text); else toast(naoOuvi('Não ouvi nada. Tenta de novo!'));
   } catch (e) {
     const msg = voice.listenErrorMsg(e); if (msg) toast(msg, 3500);
   } finally { endActivity('listening'); mic?.classList.remove('listening'); if (interim) interim.textContent = ''; }
@@ -1053,7 +1061,7 @@ async function recordTurn() {
   try {
     const audio = await recorder.record({ onLevel: (l) => { if (interim) interim.innerHTML = `<span class="meter"><i style="width:${Math.round(l * 100)}%"></i></span>`; } });
     endActivity('listening');
-    if (!audio) return toast(S().polite ? 'Não ouvi nada. Tente de novo.' : 'Não ouvi nada. Fala mais perto!');
+    if (!audio) return toast(S().polite ? 'Não ouvi nada. Tente de novo.' : naoOuvi('Não ouvi nada. Fala mais perto!'));
     if (currentRoute === 'chat') sendAudio(audio);
   } catch (e) {
     toast(e.name === 'NotAllowedError' ? 'Permissão do microfone negada.' : 'Erro no microfone: ' + (e.message || e.name), 4000);
@@ -1431,8 +1439,8 @@ function renderSettings() {
     <div class="card">
       <h2 class="set-h">${icon('star')} Aparência</h2>
       <label class="field"><span>Tema</span><select id="themeSel">
-        <option value="dark" ${s.uiTheme !== 'light' ? 'selected' : ''}>Escuro (padrão)</option>
-        <option value="light" ${s.uiTheme === 'light' ? 'selected' : ''}>Claro</option>
+        <option value="light" ${s.uiTheme !== 'dark' ? 'selected' : ''}>Claro (padrão)</option>
+        <option value="dark" ${s.uiTheme === 'dark' ? 'selected' : ''}>Escuro</option>
       </select></label>
     </div>
 

@@ -1,39 +1,34 @@
-EaglesIn — atualização "Voz mais rápida + botão Pular" (versão nuvem-v44)
-=========================================================================
+EaglesIn — atualização "Roteiro do Pavio: 250 falas" (versão nuvem-v50)
+=======================================================================
 
 O QUE MUDOU
-- Botão "Pular" (canto superior direito) aparece só enquanto alguém fala.
-  No jogo: corta a fala atual e o jogo segue; o texto continua no balão.
-  No modo clássico: corta o trecho atual (ex.: a bronca em português) e
-  passa para o próximo (ex.: a frase em inglês). Tocar de novo pula o próximo.
-- O Pavio fala frase por frase: a 1ª frase é gerada primeiro e ele já começa
-  a falar enquanto o resto é preparado por trás.
-- O app lembra qual modelo de voz do Gemini funcionou e não perde tempo
-  testando os outros toda vez que abre.
-- Texto e voz juntos: no chat, os pontinhos "digitando…" ficam até a voz
-  estar pronta, e o texto aparece no mesmo instante em que ele fala.
-  No jogo, o balão mostra os pontinhos e o texto entra junto com a voz
-  (espera no máximo 3,5 s; se a voz demorar mais, o texto aparece assim mesmo).
-- Ao entrar numa fase, a abertura do Pavio e as 2 primeiras falas do
-  atendente já são geradas. Tudo fica guardado no aparelho: da 2ª vez sai na hora.
+As 250 frases do roteiro entraram no app, cada grupo no seu momento:
+1) Saudações (40): no Início do jogo (metade das vezes uma do roteiro, metade
+   a saudação da hora: "Bom dia, seu otário!..."), e na tela inicial do modo
+   clássico. Frase comprida ganha letra um pouco menor.
+2) Erros (50): entram nas broncas do 1º e 2º erro seguido.
+3) Erros seguidos (40): entram nas broncas do 3º e 4º erro (Pavio estourando).
+   Obs.: "É A QUINTA VEZ" virou "DE NOVO", porque nem sempre é a quinta.
+4) Acertos (35): elogios quando acerta; os gritos (CAIXA ALTA, "finalmente",
+   "milagre") também valem para quando acerta depois de errar.
+5) Silêncio (25): quando o microfone não ouve nada (fases e modo clássico).
+6) Desistir (25): NOVO aviso ao tocar no ✕ no meio de uma fase. O Pavio
+   provoca e dá as opções "Continuar a fase" ou "Sair mesmo".
+7) Espontâneas (35): o balão do Pavio no rodapé do Início.
+
+No Modo educado nada disso aparece (e o ✕ sai direto). No modo clássico o
+roteiro só vale com o Professor Pavio e fora do humor "Debochado leve".
 
 ARQUIVOS DESTE PACOTE (substitua no GitHub, mesmas pastas)
-  app.js
   sw.js
-  style.css
-  js/vozgemini.js
-  jogo/nucleo.js
-  jogo/fase.js
+  app.js
+  js/prompts.js
+  js/falas-pavio.js   (arquivo NOVO: é aqui que ficam as 250 falas)
   jogo/jogo.css
+  jogo/inicio.js
+  jogo/fase.js
 
 ORDEM DE ENVIO
-Se ainda não enviou, suba antes (ou tudo junto):
-  1. english-atualizacao-voz-gemini
-  2. english-atualizacao-barra
-  3. english-atualizacao-pavio-papo
-  4. este pacote (por último: o app.js, o style.css e o sw.js dele são os mais novos)
-
-OBSERVAÇÃO
-Cada fala longa agora vira 2 pedidos ao Gemini (em vez de 1). Se a cota
-gratuita acabar, o app usa a voz do aparelho por 10 minutos e depois volta.
-Este pacote não contém nenhuma chave de API (config.local.js não vai junto).
+Suba depois do pacote english-atualizacao-visual-5 (ou tudo junto; estes
+arquivos já incluem tudo dos pacotes anteriores).
+Este pacote não contém nenhuma chave de API.
