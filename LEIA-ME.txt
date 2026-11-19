@@ -1,15 +1,29 @@
-﻿EaglesIn — barra de navegação fixa (cache nuvem-v41)
-====================================================
+EaglesIn — atualização "Pavio mais ácido + Papo livre" (versão nuvem-v42)
+========================================================================
 
-Suba igual das outras vezes (Add file > Upload files), arrastando o
-CONTEÚDO desta pasta. Mensagem do commit: "Barra fixa (v41)".
+O QUE MUDOU
+- Professor Pavio mais hostil: mais palavrões e xingamentos de brincadeira
+  ("seu jumento", "anta", "cabeça de bagre"...), mais ácido desde o primeiro erro.
+  Continua sem ofender família, aparência, raça, gênero, religião etc.,
+  e alivia quando o aluno está frustrado ou pede ajuda.
+- Aba Conversar: novo cartão "Papo livre com o Pavio". É um chat sem roteiro
+  e sem meta. O Pavio puxa assunto (28 temas sorteados), muda de assunto quando
+  o papo morre e corrige seu inglês sem parar a conversa.
+  Também há o botão "Continuar o último papo".
+- As missões do jogo também ficaram com o Pavio mais ácido.
 
-Se você ainda NÃO subiu a pasta english-atualizacao-voz-gemini,
-suba ela primeiro (ou junto): esta pasta só tem o que mudou depois dela.
+ARQUIVOS DESTE PACOTE (substitua no GitHub, mesmas pastas)
+  app.js
+  style.css
+  sw.js
+  js/prompts.js
+  jogo/missao.js
 
-O que muda:
-- No jogo aparece embaixo a mesma barra do modo clássico:
-  Jogo · Aprender · Conversar · Provas · Revisar · Progresso.
-- No modo clássico, o botão "Início" virou "Jogo" (volta para o jogo).
-- Dentro de uma fase/missão do jogo, e de uma aula/prova do modo
-  clássico, a barra some para dar espaço; o ✕ volta.
+ORDEM DE ENVIO
+Se ainda não enviou, suba antes (ou tudo junto):
+  1. english-atualizacao-voz-gemini
+  2. english-atualizacao-barra
+  3. este pacote (por último, porque o style.css e o sw.js dele são os mais novos)
+
+Depois de subir, abra o app, espere uns segundos: ele se atualiza sozinho.
+Este pacote não contém nenhuma chave de API (config.local.js não vai junto).

@@ -54,7 +54,17 @@ function closeModal() { $('#modal').classList.add('hidden'); }
 $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
 
 /* Ícone do conjunto embutido no index.html (fonte: icons/ui.svg, Lucide). */
-const MODE_ICON = { livre: 'message-circle', simulacao: 'drama', desafio: 'trophy', pronuncia: 'audio-lines', debate: 'swords', guiada: 'compass', tema: 'clapperboard' };
+/* Pontos de partida do Papo livre: o Pavio abre com um deles e depois o papo vai para onde for. */
+const PAPO_TOPICOS = [
+  'a pior comida que o aluno já comeu', 'pizza com abacaxi: crime ou não', 'o que o aluno faria se ganhasse na loteria amanhã', 'a série que o aluno está maratonando',
+  'o último sonho esquisito do aluno', 'viajar no tempo: passado ou futuro', 'o game mais viciante que existe', 'a pior desculpa que o aluno já deu para faltar',
+  'superpoder inútil que o aluno gostaria de ter', 'cachorro ou gato', 'o famoso que o aluno levaria para jantar', 'a música que o aluno tem vergonha de gostar',
+  'o maior mico que o aluno já pagou', 'morar em outro país: qual e por quê', 'o que o aluno comeu hoje', 'academia: vício ou sofrimento',
+  'o filme mais superestimado do mundo', 'trabalho dos sonhos x trabalho real', 'redes sociais: dá pra viver sem?', 'o fim de semana perfeito',
+  'se o aluno fosse invisível por um dia', 'a melhor viagem da vida dele', 'apocalipse zumbi: qual o plano', 'café ou energético',
+  'o talento escondido do aluno', 'a coisa mais cara que ele já comprou e se arrependeu', 'praia ou montanha', 'inteligência artificial vai roubar empregos?',
+];
+const MODE_ICON = { papo: 'message-circle', livre: 'message-circle', simulacao: 'drama', desafio: 'trophy', pronuncia: 'audio-lines', debate: 'swords', guiada: 'compass', tema: 'clapperboard' };
 const icon = (name, cls = '') => `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 
 /* ---------------------------------------------------------- memória do aluno (Configurações) */
@@ -481,7 +491,13 @@ function renderTalk() {
       <h1>Conversar</h1>
       <p class="muted">Por voz ou texto. ${art} ${esc(t.name)} adapta vocabulário, velocidade e perguntas ao seu nível (${lv.id}).</p>
     </header>
-    ${state.chat?.messages?.length ? `<button class="card resume-card" data-go="chat/${esc(state.chat.themeId)}">
+    <button class="card papo-card" id="papoLivre">
+      <span class="papo-ico">${icon('message-circle')}</span>
+      <span class="grow"><b>Papo livre com ${art.toLowerCase()} ${esc(t.name.replace('Professor ', ''))}</b>
+        <span class="muted small">Chat sem roteiro: ${t.g === 'm' ? 'ele' : 'ela'} puxa assunto sobre qualquer coisa e você treina falando ou digitando.</span></span>
+      ${icon('chevron-right')}</button>
+    ${state.chat?.mode === 'papo' && state.chat.messages?.length ? `<button class="link back-link" data-go="chat/modo:papo" style="margin:-4px 0 10px">${icon('history')} Continuar o último papo</button>` : ''}
+    ${state.chat?.messages?.length && state.chat.mode !== 'papo' ? `<button class="card resume-card" data-go="chat/${esc(state.chat.themeId)}">
       <span class="mini-ico">${icon('history')}</span>
       <span class="grow"><b>Voltar à última conversa</b><span class="muted small">${esc(chatInfo(state.chat).name)}</span></span>${icon('chevron-right', 'ic-muted')}</button>` : ''}
     <section class="card guided-card">
@@ -499,6 +515,7 @@ function renderTalk() {
     </div>`;
   $$('[data-convo]').forEach((b) => (b.onclick = () => startConvo(b.dataset.convo)));
   $$('[data-mode]').forEach((b) => (b.onclick = () => startMode(b.dataset.mode)));
+  $('#papoLivre').onclick = () => startMode('papo');
 }
 
 function startConvo(id) {
@@ -513,6 +530,8 @@ function startConvo(id) {
 function startMode(mode) {
   const begin = (scenario) => { closeModal(); newChat('modo:' + mode, scenario?.topicFree || '', { mode, cefr: S().cefr, scenario: scenario?.topicFree ? null : scenario }); go('chat/modo:' + mode); };
   if (mode === 'livre') return askFreeTopic();
+  // Papo livre: abre na hora, o Pavio escolhe o assunto e fala primeiro.
+  if (mode === 'papo') { newChat('modo:papo', pick(PAPO_TOPICOS), { mode: 'papo', cefr: S().cefr }); if (location.hash === '#chat/modo:papo') route(); else go('chat/modo:papo'); return; }
   if (mode === 'pronuncia') {
     if (!canUseMic()) return toast('Essa modalidade precisa de microfone.');
     return begin({ title: 'Treino de pronúncia', role: 'Você é uma fonoaudióloga exigente de sotaque americano.', goal: 'Dizer 6 frases com nota 8 ou mais.' });
@@ -819,6 +838,7 @@ function chatInfo(chat) {
     return { emoji: th.emoji, name: th.name, goal: th[chat.level] ? tx(th[chat.level].goal) : '' };
   }
   const m = CHAT_MODES[chat.mode] || CHAT_MODES.livre;
+  if (chat.mode === 'papo') return { emoji: m.emoji, name: m.name, goal: '' };
   if (chat.scenario) return { emoji: m.emoji, name: `${m.name}: ${chat.scenario.title}`, goal: chat.scenario.goal };
   return { emoji: FREE_THEME.emoji, name: FREE_THEME.name + (chat.freeTopic ? ': ' + chat.freeTopic : ''), goal: '' };
 }

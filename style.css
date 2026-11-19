@@ -1237,3 +1237,14 @@ body.focus #stepNext, body.focus #nextEx { position: sticky; bottom: 10px; z-ind
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: .64rem; font-weight: 600;
 }
 .tabbar a.tab-jogo span { display: grid; place-items: center; font-size: 1.35rem; }
+
+/* Papo livre (aba Conversar): cartão de destaque */
+.papo-card {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; margin-bottom: 14px; padding: 16px;
+  border: 1px solid var(--accent-strong); background: linear-gradient(135deg, rgba(33,196,107,.22), rgba(33,196,107,.05)); color: inherit; cursor: pointer;
+}
+.papo-card b { display: block; font-size: 1.05rem; margin-bottom: 2px; }
+.papo-card .papo-ico { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+  background: linear-gradient(160deg, var(--green-bright), var(--green)); color: var(--on-accent); box-shadow: 0 6px 18px var(--glow); }
+.papo-card .papo-ico .ic { width: 24px; height: 24px; }
+.papo-card:active { transform: scale(.98); }
