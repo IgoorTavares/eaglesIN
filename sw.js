@@ -3,7 +3,7 @@
    Ao mudar qualquer arquivo, aumente CACHE_VERSION para
    forçar a atualização no celular.
    ========================================================== */
-const CACHE_VERSION = 'nuvem-v50';
+const CACHE_VERSION = 'nuvem-v51';
 const SHELL = [
   // O jogo (entrada do app desde a G2)
   './jogo/',
@@ -40,6 +40,15 @@ const SHELL = [
   './js/voice.js',
   './js/prompts.js',
   './js/falas-pavio.js',
+  './js/curso/index.js',
+  './js/curso/ajuda.js',
+  './js/curso/A1-U1.js',
+  './js/curso/A1-U2.js',
+  './js/curso/A1-U3.js',
+  './js/curso/A1-U4.js',
+  './js/curso/A1-U5.js',
+  './js/curso/A1-U6.js',
+  './js/curso/A1-final.js',
   './js/ai.js',
   './js/pronunciation.js',
   './js/srs.js',

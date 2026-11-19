@@ -1,34 +1,27 @@
-EaglesIn — atualização "Roteiro do Pavio: 250 falas" (versão nuvem-v50)
-=======================================================================
+EaglesIn — atualização "curso-A1" (v51)
+=========================================
 
-O QUE MUDOU
-As 250 frases do roteiro entraram no app, cada grupo no seu momento:
-1) Saudações (40): no Início do jogo (metade das vezes uma do roteiro, metade
-   a saudação da hora: "Bom dia, seu otário!..."), e na tela inicial do modo
-   clássico. Frase comprida ganha letra um pouco menor.
-2) Erros (50): entram nas broncas do 1º e 2º erro seguido.
-3) Erros seguidos (40): entram nas broncas do 3º e 4º erro (Pavio estourando).
-   Obs.: "É A QUINTA VEZ" virou "DE NOVO", porque nem sempre é a quinta.
-4) Acertos (35): elogios quando acerta; os gritos (CAIXA ALTA, "finalmente",
-   "milagre") também valem para quando acerta depois de errar.
-5) Silêncio (25): quando o microfone não ouve nada (fases e modo clássico).
-6) Desistir (25): NOVO aviso ao tocar no ✕ no meio de uma fase. O Pavio
-   provoca e dá as opções "Continuar a fase" ou "Sair mesmo".
-7) Espontâneas (35): o balão do Pavio no rodapé do Início.
+O QUE MUDA
+- O nível A1 inteiro agora é um curso FIXO que funciona sem internet e sem a chave da IA:
+  36 aulas (6 unidades x 6 aulas), 6 provas de unidade (20 questões cada)
+  e a prova final do A1 (24 questões).
+- A correção da escrita das provas fixas é feita no próprio aparelho (sem IA),
+  e mostra um "Exemplo de resposta".
+- Os níveis A2 a C2 continuam usando a IA até receberem o conteúdo fixo
+  (um pacote por nível).
+- O app não tenta usar o reconhecimento de voz do Gemini quando está offline.
 
-No Modo educado nada disso aparece (e o ✕ sai direto). No modo clássico o
-roteiro só vale com o Professor Pavio e fora do humor "Debochado leve".
-
-ARQUIVOS DESTE PACOTE (substitua no GitHub, mesmas pastas)
-  sw.js
+ARQUIVOS (substituir/criar na mesma pasta do site)
   app.js
-  js/prompts.js
-  js/falas-pavio.js   (arquivo NOVO: é aqui que ficam as 250 falas)
-  jogo/jogo.css
-  jogo/inicio.js
-  jogo/fase.js
+  sw.js                    (CACHE_VERSION = nuvem-v51; guarda o curso para uso offline)
+  js/learn.js
+  js/curso/index.js        (NOVA pasta js/curso)
+  js/curso/ajuda.js
+  js/curso/A1-U1.js ... A1-U6.js
+  js/curso/A1-final.js
 
-ORDEM DE ENVIO
-Suba depois do pacote english-atualizacao-visual-5 (ou tudo junto; estes
-arquivos já incluem tudo dos pacotes anteriores).
-Este pacote não contém nenhuma chave de API.
+DEPOIS DE SUBIR
+- Abra o app uma vez com internet para o service worker baixar o curso.
+  Depois disso o A1 funciona em modo avião.
+
+Sem chaves de API nos arquivos. config.local.js NÃO faz parte do pacote.

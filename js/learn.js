@@ -13,6 +13,7 @@ import {
 import { addCard, dueCards, grade, boxCounts } from './srs.js';
 import { buildLessonPrompt, buildExamPrompt, buildWritingPrompt } from './prompts.js';
 import { generateLesson, generateExam, gradeWriting, AIError } from './ai.js';
+import { aulaFixa, provaFixa, corrigeEscrita } from './curso/index.js';
 
 let X; // contexto do app
 export function initLearn(ctx) { X = ctx; }
@@ -21,6 +22,8 @@ const esc = (s) => X.esc(s);
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 /* Aulas/provas guardadas dependem do professor e do modo (a voz dele está no conteúdo). */
 const packTag = () => ':' + X.T().id + (X.S().polite ? ':p' : '');
+/* Curso fixo: a fala com palavrão só vai com o Pavio fora do Modo educado e do humor leve. */
+const educado = () => X.S().polite || X.T().id !== 'pavio' || X.T().humor === 'leve';
 const pctOf = (ok, n) => (n ? Math.round((ok / n) * 100) : 0);
 
 /* ---------- falas da professora nos exercícios (personalidade intacta) ---------- */
@@ -103,6 +106,7 @@ export function renderLearn(levelId) {
   X.view.innerHTML = `
     <header class="page-head"><h1>Aprender</h1>
       <p class="muted small">${t.levels} níveis · ${t.units} unidades · ${t.lessons} aulas · ${t.units} provas de unidade · ${t.levels} provas finais · ${t.convos} conversas guiadas</p></header>
+    <div class="aba-dupla" role="tablist" aria-label="Aprender"><button role="tab" aria-selected="true" class="on">Aulas</button><button role="tab" aria-selected="false" data-go="exams">Provas</button></div>
     <div class="level-tabs seg" role="tablist" aria-label="Níveis">${CEFR.map((l) => `<button role="tab" aria-selected="${l.id === lv.id}" class="${l.id === lv.id ? 'on' : ''} ${l.id === X.S().cefr ? 'mine' : ''}" data-lv="${l.id}">${l.id}${finalPassed(l.id) ? icon('check') : ''}</button>`).join('')}</div>
     <section class="card level-card level-hero">
       <div class="level-hero-top">
@@ -347,7 +351,8 @@ async function loadPack(box, id, build, gen, live, label) {
   } catch (e) {
     if (!live()) return null;
     X.setMood('chocada');
-    box.innerHTML = `<div class="card center"><p>⚠️ ${esc(e.message || String(e))}</p><button class="btn primary" id="retryPack">Tentar de novo</button>
+    const msg = navigator.onLine === false ? 'Este conteúdo ainda não está no curso offline. Conecte-se à internet para gerar com a IA.' : e.message || String(e);
+    box.innerHTML = `<div class="card center"><p>⚠️ ${esc(msg)}</p><button class="btn primary" id="retryPack">Tentar de novo</button>
       ${e instanceof AIError && ['nokey', 'badkey', 'model'].includes(e.kind) ? '<p><a href="#settings">Abrir configurações</a></p>' : ''}</div>`;
     return new Promise((res) => { X.$('#retryPack', box).onclick = () => res(loadPack(box, id, build, gen, live, label)); });
   } finally { X.endActivity('thinking'); }
@@ -382,7 +387,8 @@ export function renderLessonC(lessonId) {
   const setStep = (k) => setFocusStep(k, STEPS);
 
   (async () => {
-    const pack = await loadPack(box, 'lesson:' + lesson.id + packTag(),
+    // Curso fixo primeiro (offline); só usa a IA se a aula ainda não estiver escrita.
+    const pack = await aulaFixa(lesson.id, educado()) || await loadPack(box, 'lesson:' + lesson.id + packTag(),
       () => buildLessonPrompt({ teacher: X.T(), polite: X.S().polite, level, unit, lesson, vocab }), generateLesson, live, 'Preparando a aula…');
     if (!pack || !live()) return;
     const nextBtn = (label = 'Próximo') => new Promise((res) => {
@@ -437,11 +443,11 @@ export function renderLessonC(lessonId) {
     Object.entries(bySkill(quiz)).forEach(([k, v]) => updateSkill(k, v));
     pack.vocab.forEach((v) => addCard(v.en, v.pt));
     quiz.filter((r) => !r.ok).forEach((r) => addCard(r.item.resposta, r.item.explicacao, { failed: true }));
-    lessonResult(box, { lesson, unit, pct, quiz });
+    lessonResult(box, { lesson, unit, pct, quiz, fixo: !!pack.fixo });
   })();
 }
 
-function lessonResult(box, { lesson, unit, pct, quiz }) {
+function lessonResult(box, { lesson, unit, pct, quiz, fixo }) {
   const polite = X.S().polite;
   const verdict = pct >= PASS.advance ? (polite ? 'Aula concluída. Muito bem!' : `Passou. Tô quase ${X.T().g === 'm' ? 'orgulhoso' : 'orgulhosa'}.`)
     : pct >= PASS.retry ? (polite ? 'Concluída, mas revise os erros.' : 'Passou raspando. Revisa essa merda.')
@@ -456,7 +462,7 @@ function lessonResult(box, { lesson, unit, pct, quiz }) {
     ${wrong.length ? `<div style="text-align:left"><h3 class="step-h">${icon('repeat')} Para revisar</h3>${wrong.map((r) => `<div class="correction"><b>${esc(r.item.pergunta)}</b><div>${icon('check')} ${esc(r.item.resposta)}</div><div class="small">${esc(r.item.explicacao)}</div></div>`).join('')}</div>` : ''}
     <div class="result-actions">
       ${nxt ? `<button class="btn primary block" data-go="lesson-c/${nxt.id}">Próxima aula ${icon('chevron-right')}</button>` : `<button class="btn primary block" data-go="exam-c/unit/${unit.id}">Prova da unidade ${icon('chevron-right')}</button>`}
-      <button class="btn outline block" id="redo" title="Gera uma aula nova sobre o mesmo tema">${icon('rotate-ccw')} Refazer com aula nova</button>
+      <button class="btn outline block" id="redo" title="${fixo ? 'Faz a mesma aula de novo, com as questões em outra ordem' : 'Gera uma aula nova sobre o mesmo tema'}">${icon('rotate-ccw')} ${fixo ? 'Refazer a aula' : 'Refazer com aula nova'}</button>
     </div>
     <button class="btn ghost block" data-go="unit/${unit.id}" style="margin-top:8px">Voltar à unidade</button>
     ${X.nextStageBtn()}
@@ -481,7 +487,7 @@ export function renderExamC(kind, id) {
   const setStep = (k) => setFocusStep(k, ESTEPS);
 
   (async () => {
-    const pack = await loadPack(box, packId, () => buildExamPrompt({ teacher: X.T(), polite: X.S().polite, level, unit, final }),
+    const pack = await provaFixa(final ? level.id + '-final' : unit.id, educado()) || await loadPack(box, packId, () => buildExamPrompt({ teacher: X.T(), polite: X.S().polite, level, unit, final }),
       (sys) => generateExam(sys, final ? 18 : 15), live, 'Montando a prova…');
     if (!pack || !live()) return;
     box.innerHTML = `<div class="card step-card"><span class="eyebrow">${final ? `Prova final · ${level.id}` : `Prova · ${level.id} · Unidade ${unit.n}`}</span><h1 class="step-title">${final ? `Prova final do ${level.id}` : esc(unit.title)}</h1>
@@ -511,12 +517,15 @@ export function renderExamC(kind, id) {
     if (!live()) return;
 
     setStep(3);
-    box.innerHTML = `<div class="card center loading-card"><span class="mini-ico big-ico spin-soft">${icon('pencil')}</span><p><b>Corrigindo a escrita…</b></p><span class="typing"><i></i><i></i><i></i></span></div>`;
-    X.activity('thinking');
     let written = null, wErr = '';
-    try { written = await gradeWriting(buildWritingPrompt({ teacher: X.T(), polite: X.S().polite, levelId: level.id }), tasks); }
-    catch (e) { wErr = e.message || String(e); }
-    finally { X.endActivity('thinking'); }
+    if (pack.fixo) written = corrigeEscrita(tasks, educado()); // prova fixa: correção sem IA, funciona offline
+    else {
+      box.innerHTML = `<div class="card center loading-card"><span class="mini-ico big-ico spin-soft">${icon('pencil')}</span><p><b>Corrigindo a escrita…</b></p><span class="typing"><i></i><i></i><i></i></span></div>`;
+      X.activity('thinking');
+      try { written = await gradeWriting(buildWritingPrompt({ teacher: X.T(), polite: X.S().polite, levelId: level.id }), tasks); }
+      catch (e) { wErr = e.message || String(e); }
+      finally { X.endActivity('thinking'); }
+    }
     if (!live()) return;
 
     const skills = bySkill(results);
@@ -567,7 +576,7 @@ function examResult(box, { final, level, unit, score, skills, passed, weak, miss
       ${weak.length ? warn(`Abaixo de ${PASS.finalSkillMin}%: ${weak.map((k) => SKILLS[k]).join(', ')}.`) : ''}
       ${wErr ? warn(`A escrita não foi corrigida: ${esc(wErr)}`) : ''}
     </div>
-    ${written ? `<div class="card"><h3 class="step-h">${icon('pencil')} Correção da escrita</h3>${tasks.map((t, i) => `<div class="correction"><b>${esc(t.pergunta)}</b><div class="small muted">Você: ${esc(t.answer || '(vazio)')}</div>${written[i].correcao ? `<div>${icon('check')} ${esc(written[i].correcao)}</div>` : ''}<div class="small"><b>${written[i].nota.toFixed(1)}/10</b> · ${esc(written[i].comentario)}</div></div>`).join('')}</div>` : ''}
+    ${written ? `<div class="card"><h3 class="step-h">${icon('pencil')} Correção da escrita</h3>${tasks.map((t, i) => `<div class="correction"><b>${esc(t.pergunta)}</b><div class="small muted">Você: ${esc(t.answer || '(vazio)')}</div>${written[i].correcao ? `<div>${icon('check')} ${written[i].exemplo ? '<b>Exemplo de resposta:</b> ' : ''}${esc(written[i].correcao)}</div>` : ''}<div class="small"><b>${written[i].nota.toFixed(1)}/10</b> · ${esc(written[i].comentario)}</div></div>`).join('')}</div>` : ''}
     ${results.some((r) => !r.ok) ? `<details class="card plan-card"><summary><b>${icon('x')} Questões erradas (${results.filter((r) => !r.ok).length})</b></summary>${results.filter((r) => !r.ok).map((r) => `<div class="correction"><b>${esc(r.item.pergunta)}</b>${r.item.audio ? `<div class="small muted">Áudio: "${esc(r.item.audio)}"</div>` : ''}<div class="small muted">Você: ${esc(r.answer)}</div><div>${icon('check')} ${esc(r.item.resposta)}</div><div class="small">${esc(r.item.explicacao)}</div></div>`).join('')}</details>` : ''}
     ${weakLessons.length ? `<div class="card"><h3 class="step-h">${icon('target')} Revisão direcionada</h3><div class="lesson-list">${weakLessons.map((l) => `<button class="lesson-row" data-go="lesson-c/${l.id}"><span class="dot">${l.n}</span><span class="grow"><b>${esc(l.title)}</b><span class="muted small">${esc(l.pt)}</span></span>${icon('chevron-right', 'ic-muted')}</button>`).join('')}</div></div>` : ''}
     <div class="result-actions">
@@ -600,8 +609,9 @@ export function renderExams() {
   const nextU = lv.units.find((u) => (bestUnitExam(u.id) ?? 0) < PASS.advance);
   const fp = finalPassed(lv.id);
   X.view.innerHTML = `
-    <header class="page-head"><h1>Avaliações</h1>
+    <header class="page-head"><h1>Aprender</h1>
       <p class="muted small">O app não aprova só por concluir aulas: você precisa demonstrar o que aprendeu.</p></header>
+    <div class="aba-dupla" role="tablist" aria-label="Aprender"><button role="tab" aria-selected="false" data-go="learn">Aulas</button><button role="tab" aria-selected="true" class="on">Provas</button></div>
     <section class="card exam-hero">
       <div class="level-hero-top">
         <span class="lvl-badge">${lv.id}</span>

@@ -41,7 +41,8 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const fmt = (sec) => { sec = Math.max(0, Math.round(sec)); return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`; };
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const cleanWord = (w) => w.replace(/[^\p{L}\p{N}'-]/gu, '');
-const useGeminiEars = () => S().listenMode === 'gemini' && recorder.canRecord;
+// Sem internet, o microfone usa o reconhecimento do próprio aparelho.
+const useGeminiEars = () => S().listenMode === 'gemini' && recorder.canRecord && navigator.onLine !== false;
 const canUseMic = () => useGeminiEars() || voice.canListen;
 const isTalking = () => voice.isSpeaking() || eleven.isPlaying();
 
