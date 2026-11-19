@@ -1,7 +1,7 @@
 /* ==========================================================
    jogo.js — entrada do EaglesIn: A Viagem.
    Rotas (no endereço, para o "voltar" do celular funcionar):
-     #abertura · #mundos · #mapa/<mundo> · #fase/<mundo>/<parada> · #galeria/<n>
+     #abertura · #inicio (painel, tela padrão) · #mundos · #mapa/<mundo> · #fase/<mundo>/<parada> · #galeria/<n>
      #loja · #missao/<mundo>
    O progresso fica nos dados do app (salvar.js).
    ========================================================== */
@@ -10,6 +10,7 @@ import { $, calar } from './nucleo.js';
 import { telaAbertura, telaMundos, telaMapa, telaGaleria, telaLoja } from './telas.js';
 import { telaFase } from './fase.js';
 import { telaMissao } from './missao.js';
+import { telaInicio } from './inicio.js';
 import { mundo } from './mundos.js';
 import { FASES } from './fases.js';
 import * as sv from './salvar.js';
@@ -24,6 +25,7 @@ let primeiraNoMapa = false;
 
 const nav = {
   abertura: () => ir('abertura'),
+  inicio: () => ir('inicio'),
   mundos: () => ir('mundos'),
   mapa: (id = j.mundoAtual, primeira = false) => { primeiraNoMapa = primeira; ir(`mapa/${id}`); },
   fase: (a, b) => (b === undefined ? ir(`fase/${j.mundoAtual}/${a}`) : ir(`fase/${a}/${b}`)),
@@ -47,7 +49,7 @@ const barra = $('#barraNav');
 barra?.addEventListener('click', (e) => {
   const a = e.target.closest('a[data-modo]');
   if (!a) return;
-  if (a.dataset.modo === 'jogo') { e.preventDefault(); nav.mapa(); return; }
+  if (a.dataset.modo === 'jogo') { e.preventDefault(); nav.inicio(); return; }
   try { sessionStorage.setItem('eaglesin-classico', '1'); } catch {}
 });
 const focoJogo = () => /^#(fase|missao|galeria)\//.test(location.hash);
@@ -63,7 +65,10 @@ function rota() {
   try { limpa?.(); } catch {}
   limpa = null; calar();
   document.querySelector('.modal-fundo')?.remove();
-  const [nome, a, b] = (location.hash.slice(1) || (j.viuAbertura ? `mapa/${j.mundoAtual}` : 'abertura')).split('/');
+  const [nome, a, b] = (location.hash.slice(1) || (j.viuAbertura ? 'inicio' : 'abertura')).split('/');
+  // A barra marca "Início" em todas as telas do jogo (Início, mundos, mapa, loja).
+  barra?.querySelectorAll('a[data-modo]').forEach((x) => x.classList.toggle('ativo', x.dataset.modo === 'jogo'));
+  if (nome === 'inicio') { if (!j.viuAbertura) return telaAbertura(app, nav); return telaInicio(app, nav); }
   if (nome === 'mundos') return telaMundos(app, nav);
   if (nome === 'loja') return telaLoja(app, nav);
   if (nome === 'missao') {

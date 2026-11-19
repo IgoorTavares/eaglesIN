@@ -122,22 +122,12 @@ export function telaMapa(app, nav, mundoId, primeira = false) {
       }).join('')}
       ${atual >= 0 ? `<img class="ficha" src="../icons/pavio-marca.png" alt="" style="left:${(M.nos[atual].x / MAPA_W) * 100}%;top:${(M.nos[atual].y / MAPA_H) * 100}%">` : ''}
     </div></div>
-    <div class="mapa-acoes">
-      <button class="acao-redonda missao ${sv.estrelasDoMundo(M) ? '' : 'trancado'} ${sv.estrelasDoMundo(M) && !sv.missaoPremiada(M.id) ? 'brilha' : ''}" id="missao" aria-label="Missão do Pavio: conversa livre">${ICO.balao}<span>Missão</span></button>
-      ${sv.bauDisponivel() ? `<button class="acao-redonda bau" id="bau" aria-label="Baú do dia">${bauSVG()}<span>Baú</span></button>` : ''}
-    </div>
     <div class="mapa-pavio"><div class="pavio-palco mini" id="pv"></div><div class="balao balao-pavio" id="balaoPv" hidden></div></div>
   </section>`;
   const pavio = new Pavio($('#pv'));
   const balao = $('#balaoPv');
   $('#mundos').onclick = () => { sfx('toque'); nav.mundos(); };
-  $('#missao').onclick = () => {
-    sfx('toque');
-    if (!sv.estrelasDoMundo(M)) { pavio.pose('impaciente'); return falar('pavio', 'Missão é conversa livre, sem roteiro, meu querido. Primeiro passa pelo menos uma parada desse mundo, porra.', { lang: 'pt-BR', balao }); }
-    nav.missao(M.id);
-  };
-  const bau = $('#bau');
-  if (bau) bau.onclick = () => abreBau(app, () => { bau.remove(); atualizaHud(); pavio.pose('alegre'); pavio.acao('pulo'); });
+  /* Missão do dia e baú ficam no Início (jogo/inicio.js), não no mapa. */
   const rolo = $('.mapa-rolo');
   const alvo = $('.no.atual', app) || $('.no', app);
   requestAnimationFrame(() => { rolo.scrollTop = alvo.offsetTop - rolo.clientHeight * 0.55; });
