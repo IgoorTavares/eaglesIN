@@ -120,6 +120,10 @@ export function telaFase(app, m, i, F, nav) {
 
   async function abre() {
     marcaProgresso();
+    // Voz do Gemini: já gera a abertura do Pavio e as 2 primeiras falas do atendente.
+    // (Ficam guardadas no aparelho: da 2ª vez em diante saem na hora.)
+    prepara(F.intro, { quem: 'pavio', lang: 'pt-BR' });
+    F.turnos.slice(0, 2).forEach((t) => prepara(t.en, { quem: 'npc', lang: 'en-US' }));
     if (F.chefe) {
       // Entrada do chefão: faixa vermelha, música tensa e o Pavio assustado.
       tela.insertAdjacentHTML('beforeend', `<div class="chefe-faixa"><small>CHEFÃO</small><b>${esc(F.titulo)}</b><span>Pavio curto: ${VIDAS} erros e acabou</span></div>`);
@@ -130,7 +134,6 @@ export function telaFase(app, m, i, F, nav) {
       await pavioDiz(F.intro, 'impaciente');
     } else {
       pavio.pose('debochado', false); pavio.acao('pulo');
-      prepara(F.turnos[0]?.en, { quem: 'npc', lang: 'en-US' });
       await pavioDiz(F.intro, 'debochado');
     }
     if (vivo() && !acabou) proximo();

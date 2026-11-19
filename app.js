@@ -12,7 +12,7 @@ import {
 import * as voice from './js/voice.js';
 import * as recorder from './js/recorder.js';
 import * as eleven from './js/eleven.js';
-import { vozGeminiPronta, falaGemini } from './js/vozgemini.js';
+import { vozGeminiPronta, falaGemini, prepara, esperaInicio } from './js/vozgemini.js';
 import * as mem from './js/memory.js';
 import { chatReply, sessionSummary, judgePronunciation, testKey, AIError, DEFAULT_MODEL } from './js/ai.js';
 import { buildSystemPrompt, buildSummaryPrompt, TEACHERS, getTeacher, CHAT_MODES, HUMOR, stateNote } from './js/prompts.js';
@@ -142,6 +142,22 @@ function paintTalkState() {
   const el = $('#chatStatus');
   if (el && el.dataset.state !== s) { el.dataset.state = s; el.querySelector('span').textContent = TALK_LABEL[s]; }
   $('#mic')?.classList.toggle('speaking', s === 'speaking');
+  botaoPular(s === 'speaking');
+}
+/* Botão "Pular": corta só o trecho que está sendo falado (ex.: a bronca em português)
+   e segue para o próximo (ex.: a frase em inglês). */
+let skipN = 0, pularBtn = null;
+function pularFala() { skipN++; voice.stopSpeaking(); eleven.stop(); }
+function botaoPular(on) {
+  if (!pularBtn) {
+    pularBtn = document.createElement('button');
+    pularBtn.type = 'button'; pularBtn.className = 'pular-fala';
+    pularBtn.setAttribute('aria-label', 'Pular esta fala');
+    pularBtn.innerHTML = 'Pular <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 5l9 7-9 7zM15 5l7 7-7 7z" fill="currentColor"/></svg>';
+    pularBtn.addEventListener('click', (e) => { e.stopPropagation(); pularFala(); });
+    document.body.appendChild(pularBtn);
+  }
+  pularBtn.classList.toggle('on', !!on);
 }
 /* Resposta corrigida (aula, exercício, conversa) -> escada de paciência -> emoção e fala do professor. */
 function reactAnswer(ok, key) {
@@ -168,6 +184,17 @@ async function speakEleven(text, opts) {
 }
 /* parts: [{ text, lang?, mul? }]. Inglês e português usam o ElevenLabs se configurado (a mesma voz
    faz o inglês e a bronca); sem ele, ou se falhar, a voz do navegador. */
+/* Voz do Gemini vai ser usada? (sem ElevenLabs ativo e com som ligado) */
+const geminiNaVez = () => !(eleven.elevenReady() && !elevenOff) && vozGeminiPronta() && (S().audioPref || 'all') !== 'off';
+/* Já manda gerar todas as partes da fala e espera só o começo da primeira ficar pronto. */
+async function preparaFala(parts) {
+  if (!geminiNaVez()) return;
+  const pref = S().audioPref || 'all';
+  const ps = parts.filter((p) => p.text && (pref !== 'speech' || (p.lang || 'en-US') !== 'pt-BR'));
+  if (!ps.length) return;
+  ps.slice(1).forEach((p) => prepara(p.text, { quem: 'pavio', lang: p.lang || 'en-US' }));
+  await esperaInicio(ps[0].text, { quem: 'pavio', lang: ps[0].lang || 'en-US' }, 4000);
+}
 async function say(parts, mood, opts = {}) {
   const my = ++sayToken;
   if (mood) setMood(mood);
@@ -179,27 +206,33 @@ async function say(parts, mood, opts = {}) {
   if (pref === 'speech') { parts = parts.filter((p) => (p.lang || 'en-US') !== 'pt-BR'); if (!parts.length) return; }
   setTalkState('speaking', true);
   if (rOK()) R().setTalking(true);
+  // Gemini: já gera as partes seguintes enquanto a primeira toca.
+  if (geminiNaVez()) parts.slice(1).forEach((p) => p.text && prepara(p.text, { quem: 'pavio', lang: p.lang || 'en-US' }));
   try {
     for (const p of parts) {
       if (!p.text || my !== sayToken) continue;
       const lang = p.lang || 'en-US';
       const rate = lang === 'pt-BR' ? 1.05 : S().rate * (p.mul || 1);
+      const meuPulo = skipN;
+      const vivo = () => my === sayToken && meuPulo === skipN; // false se parou ou pulou este trecho
       if (eleven.elevenReady() && !elevenOff) {
-        try { await speakEleven(p.text, { lang, rate, alive: () => my === sayToken }); continue; }
+        try { await speakEleven(p.text, { lang, rate, alive: vivo }); continue; }
         catch (e) {
-          if (my !== sayToken) continue;
+          if (!vivo()) continue;
           if (['quota', 'badkey', 'voice', 'library'].includes(e.kind)) { elevenOff = true; toast(e.message + ' Usando a voz do navegador.', 5000); }
           else if (!elevenWarned.has(e.kind)) { elevenWarned.add(e.kind); toast(e.message + ' Usando a voz do navegador nesta fala.', 5000); }
         }
       }
-      if (my !== sayToken) continue;
+      if (!vivo()) continue;
       // Voz natural do Gemini (padrão desde 2026-11-19), com a mesma chave do app. Se falhar, voz do aparelho.
+      let falta = p.text;
       if (vozGeminiPronta()) {
-        try { await falaGemini(p.text, { quem: 'pavio', lang, rate: lang === 'pt-BR' ? 1 : S().rate * (p.mul || 1), alive: () => my === sayToken }); continue; }
-        catch { if (my !== sayToken) continue; }
+        try { await falaGemini(p.text, { quem: 'pavio', lang, rate: lang === 'pt-BR' ? 1 : S().rate * (p.mul || 1), alive: vivo }); continue; }
+        catch (e) { if (!vivo()) continue; if (e?.resto) falta = e.resto; } // a 1ª frase já tocou
       }
+      if (!vivo()) continue;
       // Voz da Nuvem para todos os professores (2026-11-19): voz padrão do aparelho, sem engrossar.
-      await voice.speak(p.text, { lang, rate, voiceURI: S().voiceURI, voiceURIpt: S().voiceURIpt, male: false });
+      await voice.speak(falta, { lang, rate, voiceURI: S().voiceURI, voiceURIpt: S().voiceURIpt, male: false });
     }
   } finally { if (my === sayToken) { setTalkState('speaking', false); if (rOK()) R().setTalking(false); } }
 }
@@ -1063,6 +1096,9 @@ async function askAI(audio = null) {
       if (um) { um.text = data.transcricao || '(não entendi o áudio)'; um.pron = data.pronuncia || null; delete um.pendingAudio; }
       lastAudio = null;
     }
+    // Texto e voz juntos: o "digitando…" continua até o começo da fala ficar pronto (máx. 4 s).
+    await preparaFala(replyParts(data));
+    if (state.chat !== chat) return;
     chat.messages.push({ role: 'ai', text: data.fala, data });
     busy = false; endActivity('thinking');
     handleReply(chat, data);
@@ -1108,12 +1144,15 @@ function handleReply(chat, d) {
     toast('🎯 Meta da conversa cumprida!');
   }
 }
-function speakReply(d) {
-  if (!d) return Promise.resolve();
+function replyParts(d) {
   const parts = [];
   if (S().speakPt && d.comentario_pt) parts.push({ text: d.comentario_pt, lang: 'pt-BR' });
   parts.push({ text: d.fala });
-  return say(parts, d.mood || d.emocao);
+  return parts;
+}
+function speakReply(d) {
+  if (!d) return Promise.resolve();
+  return say(replyParts(d), d.mood || d.emocao);
 }
 
 async function endSession() {

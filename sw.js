@@ -1,9 +1,9 @@
-/* ==========================================================
+﻿/* ==========================================================
    Service worker — cache do app shell (offline-first).
    Ao mudar qualquer arquivo, aumente CACHE_VERSION para
    forçar a atualização no celular.
    ========================================================== */
-const CACHE_VERSION = 'nuvem-v42';
+const CACHE_VERSION = 'nuvem-v44';
 const SHELL = [
   // O jogo (entrada do app desde a G2)
   './jogo/',

@@ -123,8 +123,33 @@ async function chamaModeloGC(modelo, texto, quem, lang) {
   const rate = +(/rate=(\d+)/.exec(a.mime)?.[1] || 24000);
   return bytes[0] === 0x52 && bytes[1] === 0x49 ? new Blob([bytes], { type: 'audio/wav' }) : pcmParaWav(bytes, rate);
 }
-// Lista de tentativas: [função, modelo]. A que funcionar primeiro fica guardada.
+// Lista de tentativas: [função, modelo]. A que funcionar fica guardada no aparelho
+// (assim, ao abrir o app, não perde tempo testando modelo que não existe).
 const TENTATIVAS = [...MODELOS.map((m) => [chamaModelo, m]), ...MODELOS_GC.map((m) => [chamaModeloGC, m])];
+const MODELO_SALVO = 'eaglesin-voz-modelo';
+const nomeTent = (t) => (t[0] === chamaModeloGC ? 'gc:' : '') + t[1];
+try { const s = localStorage.getItem(MODELO_SALVO); modeloOk = TENTATIVAS.find((t) => nomeTent(t) === s) || null; } catch {}
+function guardaModelo(t) {
+  if (modeloOk === t) return;
+  modeloOk = t;
+  try { localStorage.setItem(MODELO_SALVO, nomeTent(t)); } catch {}
+}
+
+/* Tira HTML e espaços sobrando (o jogo manda falas com <b> etc.). */
+const limpa = (t) => String(t || '').replace(/<[^>]+>/g, ' ').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+
+/* Divide a fala em 2 pedaços: a 1ª frase (gera rápido, e o Pavio já começa a falar)
+   e o resto (gerado enquanto a 1ª toca). Só 2 pedidos por fala, para não gastar cota à toa. */
+export function pedacos(texto) {
+  const t = limpa(texto);
+  const frases = t.match(/[^.!?…]+(?:[.!?…]+["')\]]*|$)\s*/g)?.map((s) => s.trim()).filter(Boolean) || [t];
+  if (frases.length < 2) return [t];
+  let n = 1, primeiro = frases[0];
+  // 1ª frase muito curta ("Porra!") vai junto com a próxima, para não soar picotado
+  while (primeiro.length < 25 && n < frases.length - 1) primeiro += ' ' + frases[n++];
+  const resto = frases.slice(n).join(' ');
+  return resto ? [primeiro, resto] : [primeiro];
+}
 
 /* Gera (ou pega do cache) o áudio de uma fala. Devolve um objectURL. */
 export async function audioDe(texto, { quem = 'npc', lang = 'en-US' } = {}) {
@@ -135,8 +160,9 @@ export async function audioDe(texto, { quem = 'npc', lang = 'en-US' } = {}) {
     let cache = null;
     try { cache = await caches.open(CACHE); const r = await cache.match(reqKey); if (r) return URL.createObjectURL(await r.blob()); } catch {}
     let blob, erro;
-    for (const tent of modeloOk ? [modeloOk] : TENTATIVAS) {
-      try { blob = await tent[0](tent[1], texto, quem, lang); modeloOk = tent; break; }
+    // Começa pelo modelo que já funcionou; se ele sumir, tenta os outros.
+    for (const tent of modeloOk ? [modeloOk, ...TENTATIVAS.filter((t) => t !== modeloOk)] : TENTATIVAS) {
+      try { blob = await tent[0](tent[1], texto, quem, lang); guardaModelo(tent); break; }
       catch (e) { erro = e; if (!['model', 'vazio'].includes(e.kind)) break; }
     }
     if (!blob) {
@@ -158,7 +184,7 @@ export async function testaVoz() {
   if (!state.settings.apiKey?.trim()) return { ok: false, msg: 'Falta a chave do Gemini nas configurações do app.' };
   pausaAte = 0; modeloOk = null;
   const frase = 'Fala, meu querido! Agora eu tenho voz de gente, porra!';
-  memoria.delete(chaveDe('pavio', 'pt-BR', frase));
+  for (const p of pedacos(frase)) memoria.delete(chaveDe('pavio', 'pt-BR', p));
   try {
     const t0 = performance.now();
     await falaGemini(frase, { quem: 'pavio', lang: 'pt-BR' });
@@ -167,11 +193,34 @@ export async function testaVoz() {
 }
 
 /* Já deixa uma fala pronta (ex.: a resposta do atendente), sem tocar. */
-export function prepara(texto, opts) { if (vozGeminiPronta() && texto) audioDe(texto, opts).catch(() => {}); }
+export function prepara(texto, opts) {
+  if (!vozGeminiPronta() || !limpa(texto)) return;
+  for (const p of pedacos(texto)) audioDe(p, opts).catch(() => {});
+}
 
-/* Fala com a voz do Gemini. Rejeita com VozError se não deu (quem chama usa a voz do aparelho). */
+/* Espera o começo da fala ficar pronto (no máximo `maxMs`), para o texto aparecer
+   junto com a voz. Nunca rejeita: se demorar ou falhar, só segue. */
+export async function esperaInicio(texto, opts, maxMs = 4000) {
+  if (!vozGeminiPronta() || !limpa(texto)) return;
+  prepara(texto, opts);
+  const primeiro = audioDe(pedacos(texto)[0], opts).catch(() => {});
+  await Promise.race([primeiro, new Promise((r) => setTimeout(r, maxMs))]);
+}
+
+/* Fala com a voz do Gemini, em 2 pedaços: toca a 1ª frase enquanto o resto é gerado.
+   Rejeita com VozError se não deu (quem chama usa a voz do aparelho). Se a 1ª parte já
+   tocou e a 2ª falhou, o erro traz `resto` = o que ainda falta falar. */
 export async function falaGemini(texto, { quem = 'npc', lang = 'en-US', rate = 1, alive } = {}) {
-  const url = await audioDe(texto, { quem, lang });
+  const o = { quem, lang };
+  const [a, b] = pedacos(texto);
+  const p2 = b ? audioDe(b, o) : null;
+  p2?.catch(() => {});
+  const url1 = await audioDe(a, o);
   if (alive && !alive()) return;
-  return playURL(url, { rate });
+  await playURL(url1, { rate });
+  if (!b || (alive && !alive())) return;
+  let url2;
+  try { url2 = await p2; } catch (e) { e.resto = b; throw e; }
+  if (alive && !alive()) return;
+  return playURL(url2, { rate });
 }

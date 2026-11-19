@@ -1248,3 +1248,12 @@ body.focus #stepNext, body.focus #nextEx { position: sticky; bottom: 10px; z-ind
   background: linear-gradient(160deg, var(--green-bright), var(--green)); color: var(--on-accent); box-shadow: 0 6px 18px var(--glow); }
 .papo-card .papo-ico .ic { width: 24px; height: 24px; }
 .papo-card:active { transform: scale(.98); }
+
+/* Botão "Pular" (aparece só enquanto o professor está falando) */
+.pular-fala { position: fixed; z-index: 60; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 64px);
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; min-height: 40px;
+  border: 1px solid rgba(255,255,255,.25); border-radius: 999px; background: rgba(10,18,14,.82); color: #fff;
+  font-family: inherit; font-size: 14px; font-weight: 700; line-height: 1; cursor: pointer; backdrop-filter: blur(6px);
+  opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity .18s, transform .18s; }
+.pular-fala.on { opacity: 1; transform: none; pointer-events: auto; }
+.pular-fala:active { transform: scale(.95); }

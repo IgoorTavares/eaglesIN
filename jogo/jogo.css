@@ -441,3 +441,20 @@ a.hud-moedas { color: inherit; text-decoration: none; }
 /* com a barra, as telas terminam acima dela */
 body.com-barra #jogo { height: calc(100dvh - var(--barra-h)); }
 body:not(.com-barra) .barra-nav { display: none; }
+
+/* "Digitando…" no balão enquanto a voz natural fica pronta */
+.digitando { display: inline-flex; gap: 5px; padding: 4px 2px; }
+.digitando i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .35; animation: digitandoG 1s infinite ease-in-out; }
+.digitando i:nth-child(2) { animation-delay: .15s; }
+.digitando i:nth-child(3) { animation-delay: .3s; }
+@keyframes digitandoG { 0%, 80%, 100% { opacity: .35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .digitando i { animation: none; opacity: .6; } }
+
+/* Botão "Pular" (aparece só enquanto alguém está falando) */
+.pular-fala { position: fixed; z-index: 60; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 64px);
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; min-height: 40px;
+  border: 1px solid rgba(255,255,255,.25); border-radius: 999px; background: rgba(10,18,14,.82); color: #fff;
+  font: 700 14px/1 inherit; font-family: inherit; cursor: pointer; backdrop-filter: blur(6px);
+  opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity .18s, transform .18s; }
+.pular-fala.on { opacity: 1; transform: none; pointer-events: auto; }
+.pular-fala:active { transform: scale(.95); }

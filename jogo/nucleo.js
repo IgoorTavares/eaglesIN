@@ -5,7 +5,7 @@
    ========================================================== */
 import * as voz from '../js/voice.js';
 import * as eleven from '../js/eleven.js';
-import { vozGeminiPronta, falaGemini, prepara } from '../js/vozgemini.js';
+import { vozGeminiPronta, falaGemini, prepara, esperaInicio } from '../js/vozgemini.js';
 import { state as appState } from '../js/store.js';
 export { prepara };
 
@@ -93,9 +93,38 @@ export const palco = { pavio: null };
    Padrão: voz do aparelho para todos. ElevenLabs só se a pessoa colou chave + ID da voz. */
 let falaId = 0;
 export const vozEstado = { elevenFalhou: '' };
+
+/* Botão "Pular": corta só a fala atual (o jogo segue normalmente, o texto fica no balão). */
+let puloN = 0, acordaPulo = null, pularBtn = null;
+export function pularFala() { puloN++; acordaPulo?.(); voz.stopSpeaking(); eleven.stop(); botaoPular(false); }
+function botaoPular(on) {
+  if (!pularBtn) {
+    pularBtn = document.createElement('button');
+    pularBtn.type = 'button'; pularBtn.className = 'pular-fala';
+    pularBtn.setAttribute('aria-label', 'Pular esta fala');
+    pularBtn.innerHTML = 'Pular <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 5l9 7-9 7zM15 5l7 7-7 7z" fill="currentColor"/></svg>';
+    pularBtn.addEventListener('click', (e) => { e.stopPropagation(); pularFala(); });
+    document.body.appendChild(pularBtn);
+  }
+  pularBtn.classList.toggle('on', !!on);
+}
+
 export async function falar(quem, texto, { lang, balao } = {}) {
   const id = ++falaId;
+  const meuPulo = puloN;
+  const vivo = () => id === falaId && meuPulo === puloN; // false se calou ou pulou
+  const pulou = new Promise((r) => { acordaPulo = r; });
   const pt = lang === 'pt-BR';
+  const prefSom = appState.settings.audioPref || 'all';
+  const semSom = prefSom === 'off' || (prefSom === 'speech' && pt);
+  const vaiGemini = !semSom && !(eleven.elevenReady() && !vozEstado.elevenFalhou) && vozGeminiPronta();
+  if (!semSom) botaoPular(true);
+  if (balao && vaiGemini) {
+    // Texto e voz juntos: "digitando…" até o começo da fala ficar pronto (no máximo 3,5 s).
+    balao.innerHTML = '<span class="digitando"><i></i><i></i><i></i></span>'; balao.hidden = false;
+    await Promise.race([esperaInicio(texto, { quem: quem === 'pavio' ? 'pavio' : 'npc', lang: lang || 'en-US' }, 3500), pulou]);
+    if (id !== falaId) return false;
+  }
   if (balao) { balao.innerHTML = texto; balao.hidden = false; balao.classList.remove('entra'); void balao.offsetWidth; balao.classList.add('entra'); }
   const ator = quem === 'pavio' ? palco.pavio : null;
   ator?.falando(true);
@@ -104,22 +133,23 @@ export async function falar(quem, texto, { lang, balao } = {}) {
   const opts = { lang: lang || 'en-US', rate: pt ? 1.08 : 0.92 };
   const pref = appState.settings.audioPref || 'all';
   let foi = pref === 'off' || (pref === 'speech' && pt);
-  if (!foi && eleven.elevenReady() && !vozEstado.elevenFalhou) {
-    try { await eleven.speak(limpo, { ...opts, alive: () => id === falaId }); foi = true; }
+  if (!foi && vivo() && eleven.elevenReady() && !vozEstado.elevenFalhou) {
+    try { await eleven.speak(limpo, { ...opts, alive: vivo }); foi = true; }
     catch (e) { if (['quota', 'badkey', 'voice', 'library'].includes(e.kind)) vozEstado.elevenFalhou = e.message; }
   }
   // Voz natural do Gemini (padrão desde 2026-11-19); se falhar, cai para a voz do aparelho.
-  if (!foi && id === falaId && vozGeminiPronta()) {
-    try { await falaGemini(limpo, { quem: quem === 'pavio' ? 'pavio' : 'npc', lang: opts.lang, alive: () => id === falaId }); foi = true; }
-    catch {}
+  let falta = limpo;
+  if (!foi && vivo() && vozGeminiPronta()) {
+    try { await falaGemini(limpo, { quem: quem === 'pavio' ? 'pavio' : 'npc', lang: opts.lang, alive: vivo }); foi = true; }
+    catch (e) { if (e?.resto) falta = e.resto; } // a 1ª frase já tocou: o aparelho fala só o resto
   }
   // Voz da Nuvem para todos (pedido do usuário, 2026-11-19): a voz padrão do aparelho, sem engrossar o Pavio.
-  if (!foi && id === falaId) await voz.speak(limpo, { ...opts, male: false, voiceURI: appState.settings.voiceURI, voiceURIpt: appState.settings.voiceURIpt });
+  if (!foi && vivo()) await voz.speak(falta, { ...opts, male: false, voiceURI: appState.settings.voiceURI, voiceURIpt: appState.settings.voiceURIpt });
   else if (foi && (pref === 'off' || (pref === 'speech' && pt))) await sleep(Math.min(4000, 600 + limpo.length * 35)); // sem áudio: tempo de leitura
-  if (id === falaId) { ator?.falando(false); if (quem === 'npc') $('.npc')?.classList.remove('falando'); }
+  if (id === falaId) { botaoPular(false); ator?.falando(false); if (quem === 'npc') $('.npc')?.classList.remove('falando'); }
   return id === falaId;
 }
-export function calar() { falaId++; voz.stopSpeaking(); voz.stopListening(); eleven.stop(); palco.pavio?.falando(false); $('.npc')?.classList.remove('falando'); }
+export function calar() { botaoPular(false); falaId++; voz.stopSpeaking(); voz.stopListening(); eleven.stop(); palco.pavio?.falando(false); $('.npc')?.classList.remove('falando'); }
 
 /* ---------- comparar o que o aluno falou com uma frase ---------- */
 const norm = (t) => String(t).toLowerCase().replace(/[’']/g, "'")
