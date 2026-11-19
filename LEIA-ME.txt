@@ -1,21 +1,15 @@
-EaglesIn — voz natural do Gemini (cache nuvem-v40)
-===================================================
-
-7 arquivos. Já inclui a mudança da voz da Nuvem (v39): se você ainda
-não subiu a pasta english-atualizacao-voz, pode pular ela e subir só esta.
+﻿EaglesIn — barra de navegação fixa (cache nuvem-v41)
+====================================================
 
 Suba igual das outras vezes (Add file > Upload files), arrastando o
-CONTEÚDO desta pasta (as pastas jogo e js + app.js e sw.js):
-  - app.js, sw.js                         (raiz)
-  - jogo/fase.js, jogo/nucleo.js, jogo/telas.js
-  - js/eleven.js, js/vozgemini.js  (vozgemini.js é arquivo NOVO)
-Mensagem do commit: "Voz natural do Gemini (v40)".
+CONTEÚDO desta pasta. Mensagem do commit: "Barra fixa (v41)".
 
-DEPOIS DE SUBIR, NO CELULAR:
-1. Abra o app (ele recarrega sozinho).
-2. Mundos > Configurações > "Testar voz natural".
-   - Se o Pavio falar com voz de gente: pronto.
-   - Se aparecer "chave recusada": a chave do Gemini no app está
-     inválida. Gere uma nova em aistudio.google.com e cole no app
-     (modo clássico > Configurações).
-   - Qualquer outra mensagem: me mande o texto que apareceu.
+Se você ainda NÃO subiu a pasta english-atualizacao-voz-gemini,
+suba ela primeiro (ou junto): esta pasta só tem o que mudou depois dela.
+
+O que muda:
+- No jogo aparece embaixo a mesma barra do modo clássico:
+  Jogo · Aprender · Conversar · Provas · Revisar · Progresso.
+- No modo clássico, o botão "Início" virou "Jogo" (volta para o jogo).
+- Dentro de uma fase/missão do jogo, e de uma aula/prova do modo
+  clássico, a barra some para dar espaço; o ✕ volta.

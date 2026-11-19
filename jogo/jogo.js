@@ -41,7 +41,19 @@ function ir(rota, trocar = false) {
   else location.hash = h;
 }
 
+/* Barra fixa: aparece em todas as telas do jogo, menos dentro de uma fase, missão ou galeria
+   (lá a tela inteira é do jogo e o ✕ volta ao mapa). Os outros botões abrem o modo clássico. */
+const barra = $('#barraNav');
+barra?.addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-modo]');
+  if (!a) return;
+  if (a.dataset.modo === 'jogo') { e.preventDefault(); nav.mapa(); return; }
+  try { sessionStorage.setItem('eaglesin-classico', '1'); } catch {}
+});
+const focoJogo = () => /^#(fase|missao|galeria)\//.test(location.hash);
+
 function mostra() {
+  document.body.classList.toggle('com-barra', !!barra && !focoJogo());
   rota();
   // Transição de entrada de cada tela.
   app.firstElementChild?.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: 'ease-out' });

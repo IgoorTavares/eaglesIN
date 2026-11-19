@@ -1231,3 +1231,9 @@ body.focus #stepNext, body.focus #nextEx { position: sticky; bottom: 10px; z-ind
 @media (min-width: 900px) and (orientation: landscape) { .ob-stage .stage-box.full.lesson-stage.ob-pavio { height: 42vh; } }
 @media (max-height: 520px) { .ob-stage .stage-box.full.lesson-stage.ob-pavio, .pavio-stage .stage-box.full.lesson-stage { height: 150px; } }
 @media (prefers-reduced-motion: reduce) { .ob-body.ob-in { animation: none; } .ob-bar .ob-progress i { transition: none; } }
+/* Botão "Jogo" na barra fixa (2026-11-19): link, com o mesmo visual dos botões */
+.tabbar a.tab-jogo {
+  position: relative; flex: 1; min-width: 0; color: var(--muted); text-decoration: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: .64rem; font-weight: 600;
+}
+.tabbar a.tab-jogo span { display: grid; place-items: center; font-size: 1.35rem; }
