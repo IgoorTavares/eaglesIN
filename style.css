@@ -1257,3 +1257,247 @@ body.focus #stepNext, body.focus #nextEx { position: sticky; bottom: 10px; z-ind
   opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity .18s, transform .18s; }
 .pular-fala.on { opacity: 1; transform: none; pointer-events: auto; }
 .pular-fala:active { transform: scale(.95); }
+
+/* ==========================================================
+   REDESIGN 2026-11 (etapas 1 e 2): tema claro padrão no estilo
+   do protótipo (cards brancos arredondados, sombra suave, botões
+   "3D" que afundam) + barra inferior flutuante com 5 itens.
+   O tema escuro continua disponível em Configurações.
+   ========================================================== */
+:root[data-theme="light"] {
+  --bg: #EEF5F0;
+  --bg2: #F7FAF8;
+  --card: #FFFFFF;
+  --card2: #F3F7F4;
+  --line: #E2ECE5;
+  --text: #0E1B13;
+  --muted: #5F6F65;
+  --on-accent: #FFFFFF;
+  --font-body: 'Nunito Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius: 22px; --r-md: 16px; --r-lg: 24px;
+  --shadow-1: 0 1px 2px rgba(14, 27, 19, .04), 0 8px 24px rgba(14, 27, 19, .07);
+  --shadow-2: 0 2px 4px rgba(14, 27, 19, .05), 0 14px 32px rgba(14, 27, 19, .10);
+  --shadow-3: 0 10px 30px rgba(14, 27, 19, .16);
+  --topbar: rgba(238, 245, 240, .88);
+  --tabbar: #FFFFFF;
+  --hero: radial-gradient(120% 140% at 85% 10%, #4ADE80 0%, transparent 45%), linear-gradient(135deg, #22C55E, #15803D);
+  --page-glow: none;
+  --tabbar-h: 70px;
+}
+:root[data-theme="light"] body { font-weight: 500; }
+:root[data-theme="light"] h1, :root[data-theme="light"] h2, :root[data-theme="light"] h3 { font-weight: 900; letter-spacing: -.02em; }
+:root[data-theme="light"] .topbar { border-bottom: 0; }
+:root[data-theme="light"] .card { border-color: transparent; }
+:root[data-theme="light"] .card.hero .muted, :root[data-theme="light"] .card.accent .muted { color: #E8FBEF; }
+:root[data-theme="light"] .chip, :root[data-theme="light"] .icon-btn { border-color: transparent; }
+
+/* botões: verde com "degrau" embaixo, afundam ao tocar */
+:root[data-theme="light"] .btn { background: #FFFFFF; border: 2px solid var(--line); box-shadow: 0 3px 0 var(--line); font-weight: 800; }
+:root[data-theme="light"] .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line); }
+:root[data-theme="light"] .btn.primary, :root[data-theme="light"] .btn.ok, :root[data-theme="light"] .btn.home-cta {
+  background: linear-gradient(180deg, #16A34A, #15803D); border-color: transparent; color: #fff; box-shadow: 0 5px 0 #14532D;
+}
+:root[data-theme="light"] .btn.primary:hover, :root[data-theme="light"] .btn.home-cta:hover { background: linear-gradient(180deg, #19B152, #16893F); }
+:root[data-theme="light"] .btn.primary:active, :root[data-theme="light"] .btn.ok:active, :root[data-theme="light"] .btn.home-cta:active { transform: translateY(3px); box-shadow: 0 2px 0 #14532D; }
+:root[data-theme="light"] .btn.ghost { background: transparent; border-color: transparent; box-shadow: none; }
+:root[data-theme="light"] .btn.outline { background: #fff; border-color: var(--green); box-shadow: 0 3px 0 #BBF7D0; }
+:root[data-theme="light"] .btn.dark { box-shadow: 0 4px 0 #000; }
+:root[data-theme="light"] .btn:disabled, :root[data-theme="light"] .btn[aria-disabled="true"] { box-shadow: none; }
+
+/* troca Aulas | Provas dentro de "Aprender" */
+.aba-dupla { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: var(--sp-4); border-radius: 16px; background: var(--card2); }
+.aba-dupla button { min-height: 42px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); font-weight: 800; transition: background var(--t-med), color var(--t-med), box-shadow var(--t-med); }
+.aba-dupla button.on { background: var(--card); color: var(--text); box-shadow: var(--shadow-1); }
+
+/* ---------- barra inferior flutuante (5 itens, Conversar no meio) ---------- */
+.tabbar {
+  left: 12px; right: 12px; bottom: calc(10px + var(--safe-b)); max-width: 520px; margin: 0 auto;
+  height: var(--tabbar-h); padding: 0 6px; border: 0; border-radius: 24px;
+  background: var(--tabbar); box-shadow: 0 10px 30px rgba(14, 27, 19, .16);
+  display: grid; grid-template-columns: 1fr 1fr 84px 1fr 1fr; align-items: center;
+}
+:root:not([data-theme="light"]) .tabbar { box-shadow: 0 10px 30px rgba(0, 0, 0, .5); border: 1px solid var(--line); }
+.tabbar button, .tabbar a.tab-jogo { height: 100%; font-size: .72rem; font-weight: 800; }
+.tabbar button.active::before { content: ""; top: auto; bottom: 8px; left: 50%; right: auto; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; }
+.tabbar .tab-main { align-self: center; }
+.tabbar .tab-main span {
+  width: 64px; height: 64px; margin-top: -34px;
+  background: linear-gradient(145deg, #22C55E, #15803D); color: #fff;
+  box-shadow: 0 0 0 6px var(--bg), 0 10px 22px rgba(22, 163, 74, .45);
+}
+.tabbar .tab-main .ic { width: 28px; height: 28px; }
+.tabbar .tab-main::after { content: ""; position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -49px 0 0 -32px; border-radius: 50%; border: 2px solid #22C55E; animation: pulsaMic 2.4s ease-out infinite; pointer-events: none; }
+.tabbar .tab-main:active span { transform: scale(.94); }
+@keyframes pulsaMic { from { transform: scale(1); opacity: .7; } to { transform: scale(1.45); opacity: 0; } }
+.view { padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 40px); }
+@media (prefers-reduced-motion: reduce) { .tabbar .tab-main::after { animation: none; opacity: 0; } }
+:root[data-theme="light"] .pular-fala { background: #fff; color: var(--text); border-color: var(--line); box-shadow: var(--shadow-2); backdrop-filter: none; }
+
+/* ==========================================================
+   REDESIGN 2026-11 (etapa 5): Aprender, Conversar, Revisar e
+   Perfil no estilo do Início (ícones coloridos "3D", nível em
+   hexágono, cartão verde de destaque, Pavio no Papo livre).
+   ========================================================== */
+:root[data-theme="light"] {
+  --t-verde: linear-gradient(160deg, #4ADE80, #16A34A);
+  --t-ouro: linear-gradient(160deg, #FCD34D, #F59E0B);
+  --t-laranja: linear-gradient(160deg, #FDBA74, #F97316);
+  --t-azul: linear-gradient(160deg, #7DD3FC, #0EA5E9);
+  --t-coral: linear-gradient(160deg, #FCA5A5, #EF4444);
+}
+:root[data-theme="light"] .page-head h1 { font-size: 1.85rem; }
+
+/* ícones em ladrilho colorido (cor escolhida pelo desenho do ícone) */
+:root[data-theme="light"] .mini-ico,
+:root[data-theme="light"] .kpi > .ic {
+  width: 42px; height: 42px; border-radius: 14px; color: #fff; background: var(--t-verde);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.14), 0 4px 10px rgba(14,27,19,.12);
+}
+:root[data-theme="light"] .kpi > .ic { padding: 10px; margin-bottom: 4px; }
+:root[data-theme="light"] .mini-ico .ic { width: 22px; height: 22px; }
+:root[data-theme="light"] :is(.mini-ico, .kpi > .ic):has(use[href="#i-flame"]) { background: var(--t-laranja); }
+:root[data-theme="light"] :is(.mini-ico, .kpi > .ic):has(use[href="#i-target"], use[href="#i-trophy"], use[href="#i-clipboard-check"], use[href="#i-clapperboard"]) { background: var(--t-ouro); }
+:root[data-theme="light"] :is(.mini-ico, .kpi > .ic):has(use[href="#i-brain"], use[href="#i-repeat"], use[href="#i-history"], use[href="#i-drama"], use[href="#i-compass"]) { background: var(--t-azul); }
+:root[data-theme="light"] :is(.mini-ico, .kpi > .ic):has(use[href="#i-swords"]) { background: var(--t-coral); }
+:root[data-theme="light"] .mini-card.accent .mini-ico { background: rgba(255,255,255,.18); box-shadow: none; }
+
+/* números (KPIs) e cartões de modalidade */
+:root[data-theme="light"] .kpi { border: 0; border-radius: 20px; min-height: 118px; }
+:root[data-theme="light"] .kpi > b { font-size: 1.45rem; }
+:root[data-theme="light"] .mode-card { border: 0; border-radius: 20px; gap: 8px; transition: transform var(--t-fast) var(--ease), box-shadow var(--t-med); }
+:root[data-theme="light"] .mode-card:active { transform: translateY(2px) scale(.98); }
+
+/* nível em hexágono */
+:root[data-theme="light"] .lvl-badge {
+  width: 56px; height: 62px; border: 0; border-radius: 0; color: #fff; font-size: 1.15rem;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: linear-gradient(170deg, #4ADE80, #16A34A 60%, #15803D);
+}
+
+/* cartão do nível vira o destaque verde (Aprender e Perfil) */
+:root[data-theme="light"] .card.level-hero,
+:root[data-theme="light"] .card.prog-hero {
+  position: relative; overflow: hidden; border: 0; color: #fff;
+  background: var(--hero); box-shadow: 0 6px 0 #15803D, var(--shadow-2);
+}
+:root[data-theme="light"] .card.level-hero::before,
+:root[data-theme="light"] .card.prog-hero::before {
+  content: ""; position: absolute; right: -40px; top: -50px; width: 170px; height: 170px; border-radius: 50%;
+  background: rgba(255,255,255,.10); pointer-events: none;
+}
+:root[data-theme="light"] :is(.level-hero, .prog-hero) .muted,
+:root[data-theme="light"] :is(.level-hero, .prog-hero) .lp-pct,
+:root[data-theme="light"] :is(.level-hero, .prog-hero) .ic { color: #E8FBEF; }
+:root[data-theme="light"] :is(.level-hero, .prog-hero) .progress { background: rgba(255,255,255,.25); }
+:root[data-theme="light"] :is(.level-hero, .prog-hero) .progress i { background: linear-gradient(90deg, #FDE047, #FBBF24); }
+:root[data-theme="light"] :is(.level-hero, .prog-hero) .tag { background: rgba(255,255,255,.18); color: #fff; border-color: transparent; }
+:root[data-theme="light"] :is(.level-hero, .prog-hero) .lvl-badge { background: linear-gradient(170deg, #FEF3C7, #FCD34D 55%, #F59E0B); color: #7C2D12; }
+:root[data-theme="light"] :is(.level-hero, .prog-hero) > * { position: relative; }
+:root[data-theme="light"] :is(.level-hero, .prog-hero) .ring { background: conic-gradient(#FDE047 calc(var(--p) * 1%), rgba(255,255,255,.28) 0); }
+:root[data-theme="light"] :is(.level-hero, .prog-hero) .ring::before { background: #16A34A; }
+:root[data-theme="light"] .papo-card.com-pavio { padding-right: 104px; }
+:root[data-theme="light"] .papo-card.com-pavio .papo-ico { display: none; }
+
+/* Papo livre: cartão verde com o Pavio saindo pela direita */
+:root[data-theme="light"] .papo-card {
+  position: relative; overflow: hidden; min-height: 112px; padding: 18px 16px; border: 0; color: #fff;
+  background: var(--hero); box-shadow: 0 6px 0 #15803D, var(--shadow-2);
+}
+:root[data-theme="light"] .papo-card.com-pavio { padding-right: 120px; }
+:root[data-theme="light"] .papo-card.com-pavio::after {
+  content: ""; position: absolute; right: -6px; bottom: -14px; width: 124px; height: 132px;
+  background: url("jogo/sprites/pavio-debochado.webp") center bottom / contain no-repeat; pointer-events: none;
+}
+:root[data-theme="light"] .papo-card .muted { color: #E8FBEF; }
+:root[data-theme="light"] .papo-card.com-pavio > .ic { display: none; }
+:root[data-theme="light"] .papo-card > .ic { color: #fff; }
+:root[data-theme="light"] .papo-card .papo-ico { background: #fff; color: #16A34A; box-shadow: 0 4px 0 rgba(0,0,0,.12); }
+
+/* unidades: número em bolinha "3D" */
+:root[data-theme="light"] .unit-card { border: 0; border-radius: 20px; }
+:root[data-theme="light"] .unit-card.current { box-shadow: 0 0 0 2px #22C55E, var(--shadow-1); }
+:root[data-theme="light"] .unit-card .unit-n { border-radius: 50%; border: 0; background: #F1F6F2; box-shadow: inset 0 -3px 0 rgba(14,27,19,.08); }
+:root[data-theme="light"] .unit-card.current .unit-n { background: var(--t-verde); color: #fff; box-shadow: inset 0 -3px 0 rgba(0,0,0,.15); }
+:root[data-theme="light"] .unit-card.passed .unit-n { background: var(--t-ouro); color: #fff; }
+:root[data-theme="light"] .level-tabs.seg { border: 0; box-shadow: var(--shadow-1); }
+:root[data-theme="light"] .level-tabs.seg button.on { background: var(--t-verde); box-shadow: inset 0 -2px 0 rgba(0,0,0,.14); }
+
+/* listas: bolinhas de status */
+:root[data-theme="light"] .dot { border-width: 0; background: #F1F6F2; box-shadow: inset 0 -2px 0 rgba(14,27,19,.08); }
+:root[data-theme="light"] .lesson-row.next .dot { background: var(--t-verde); color: #fff; }
+:root[data-theme="light"] .dot.ok { background: var(--t-verde); }
+
+/* topo: sequência com fogo laranja, nível com chapéu verde */
+:root[data-theme="light"] .top-stats .chip { background: #fff; box-shadow: var(--shadow-1); font-weight: 900; }
+:root[data-theme="light"] #chipStreak .ic { color: #F97316; }
+:root[data-theme="light"] #chipXp .ic { color: #16A34A; }
+
+/* conversa: balões */
+:root[data-theme="light"] .bubble { border-radius: 20px; }
+:root[data-theme="light"] .bubble.me { background: linear-gradient(160deg, #22C55E, #15803D); box-shadow: 0 3px 0 #14532D; border-bottom-right-radius: 6px; }
+:root[data-theme="light"] .bubble.ai { border: 0; box-shadow: var(--shadow-1); border-bottom-left-radius: 6px; }
+
+/* ==========================================================
+   REDESIGN 2026-11 (etapa 6): polimento das animações.
+   Tudo aqui some com "reduzir movimento" do sistema.
+   ========================================================== */
+@property --p { syntax: '<number>'; inherits: false; initial-value: 0; }
+
+/* telas: blocos entram em cascata com uma molinha */
+.view > :nth-child(-n+10) { animation: sobeMola .5s cubic-bezier(.34,1.56,.64,1) both; }
+.view > :nth-child(2) { animation-delay: 40ms; } .view > :nth-child(3) { animation-delay: 80ms; }
+.view > :nth-child(4) { animation-delay: 120ms; } .view > :nth-child(5) { animation-delay: 160ms; }
+.view > :nth-child(6) { animation-delay: 200ms; } .view > :nth-child(7) { animation-delay: 240ms; }
+.view > :nth-child(8) { animation-delay: 280ms; } .view > :nth-child(9) { animation-delay: 320ms; } .view > :nth-child(10) { animation-delay: 360ms; }
+@keyframes sobeMola { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+
+/* cartões dentro de grades também entram um por um */
+.kpis > *, .mode-grid > * { animation: sobeMola .45s cubic-bezier(.34,1.56,.64,1) both; }
+.kpis > :nth-child(2), .mode-grid > :nth-child(2) { animation-delay: .25s; }
+.kpis > :nth-child(3), .mode-grid > :nth-child(3) { animation-delay: .3s; }
+.kpis > :nth-child(4), .mode-grid > :nth-child(4) { animation-delay: .35s; }
+.kpis > :nth-child(5), .mode-grid > :nth-child(5) { animation-delay: .4s; }
+.kpis > :nth-child(6), .mode-grid > :nth-child(6) { animation-delay: .45s; }
+.kpis > :first-child, .mode-grid > :first-child { animation-delay: .2s; }
+.unit-list .unit-card { animation: sobeMola .45s cubic-bezier(.34,1.56,.64,1) both; }
+.unit-list .unit-card:nth-child(2) { animation-delay: .05s; } .unit-list .unit-card:nth-child(3) { animation-delay: .1s; }
+.unit-list .unit-card:nth-child(4) { animation-delay: .15s; } .unit-list .unit-card:nth-child(n+5) { animation-delay: .2s; }
+
+/* ícones coloridos dão um "pulinho" ao aparecer */
+:root[data-theme="light"] .mini-ico, :root[data-theme="light"] .kpi > .ic { animation: icoPula .6s cubic-bezier(.34,1.56,.64,1) .35s both; }
+@keyframes icoPula { from { transform: scale(.4) rotate(-12deg); opacity: 0; } }
+
+/* barras enchendo e anel girando até o valor */
+.progress > i { animation: enche .9s cubic-bezier(.2,.8,.2,1) .25s both; }
+@keyframes enche { from { width: 0; } }
+.ring { animation: anel 1s cubic-bezier(.2,.8,.2,1) .25s both; }
+@keyframes anel { from { --p: 0; } }
+
+/* hexágono do nível: brilho passando de vez em quando */
+:root[data-theme="light"] .lvl-badge { position: relative; overflow: hidden; }
+:root[data-theme="light"] .lvl-badge::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.55) 50%, transparent 65%);
+  transform: translateX(-120%); animation: brilhoPassa 4.5s ease-in-out 1s infinite;
+}
+@keyframes brilhoPassa { 0%, 70% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+
+/* Papo livre: o Pavio respira */
+:root[data-theme="light"] .papo-card.com-pavio::after { transform-origin: 50% 100%; animation: pavioRespira 3.2s ease-in-out infinite; }
+@keyframes pavioRespira { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.03, .98) rotate(-1.5deg); } }
+
+/* barra de baixo: o ícone escolhido dá um pulo */
+.tabbar button.active:not(.tab-main) .ic { animation: abaPula .45s cubic-bezier(.34,1.56,.64,1); }
+@keyframes abaPula { 0% { transform: translateY(0) scale(1); } 40% { transform: translateY(-5px) scale(1.15); } 100% { transform: none; } }
+
+/* chat: balões entram de lado */
+.bubble.ai { animation: balaoEsq .35s cubic-bezier(.34,1.56,.64,1) both; }
+.bubble.me { animation: balaoDir .35s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes balaoEsq { from { opacity: 0; transform: translateX(-12px) scale(.96); } }
+@keyframes balaoDir { from { opacity: 0; transform: translateX(12px) scale(.96); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .kpis > *, .mode-grid > *, .unit-list .unit-card, .ring, .bubble, .tabbar button .ic,
+  :root[data-theme="light"] .mini-ico, :root[data-theme="light"] .kpi > .ic,
+  :root[data-theme="light"] .lvl-badge::after, :root[data-theme="light"] .papo-card.com-pavio::after { animation: none !important; }
+}
