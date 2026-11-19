@@ -75,4 +75,16 @@ addEventListener('hashchange', mostra);
 mostra();
 
 // Mesmo service worker do app (funciona offline e instala como app).
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {});
+// Quando chega versão nova, recarrega sozinho; no meio de fase/missão, espera a pessoa sair.
+let atualizar = false;
+const ocupado = () => /^#(fase|missao)\//.test(location.hash);
+if ('serviceWorker' in navigator) {
+  const tinha = !!navigator.serviceWorker.controller; // primeira instalação não precisa recarregar
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!tinha || atualizar) return;
+    atualizar = true;
+    if (!ocupado()) location.reload();
+  });
+  addEventListener('hashchange', () => { if (atualizar && !ocupado()) location.reload(); });
+  navigator.serviceWorker.register('../sw.js', { scope: '../' }).catch(() => {});
+}

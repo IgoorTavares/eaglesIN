@@ -1507,6 +1507,16 @@ setInterval(checkReminder, 60000);
    BOOT
    ========================================================== */
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  // Versão nova chegou: recarrega sozinho. No meio de aula, prova ou conversa, espera trocar de tela.
+  const tinha = !!navigator.serviceWorker.controller;
+  let atualizar = false;
+  const ocupado = () => /^#(lesson|exam|chat|drill|welcome|login)/.test(location.hash);
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!tinha || atualizar) return;
+    atualizar = true;
+    if (!ocupado()) location.reload();
+  });
+  addEventListener('hashchange', () => { if (atualizar && !ocupado()) location.reload(); });
   navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW:', e));
 }
 

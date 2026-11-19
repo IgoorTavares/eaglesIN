@@ -3,7 +3,7 @@
    Ao mudar qualquer arquivo, aumente CACHE_VERSION para
    forçar a atualização no celular.
    ========================================================== */
-const CACHE_VERSION = 'nuvem-v37';
+const CACHE_VERSION = 'nuvem-v38';
 const SHELL = [
   // O jogo (entrada do app desde a G2)
   './jogo/',
@@ -49,7 +49,9 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE_VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' = busca no servidor, ignorando a cópia velha do navegador
+  // (o GitHub Pages deixa arquivos guardados por 10 min).
+  e.waitUntil(caches.open(CACHE_VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -70,7 +72,8 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.open(CACHE_VERSION).then(async (cache) => {
       const cached = await cache.match(e.request, { ignoreSearch: true });
-      const network = fetch(e.request)
+      // no-cache: confere com o servidor (barato, responde 304 se não mudou).
+      const network = fetch(e.request.url, { cache: 'no-cache', credentials: 'same-origin' })
         .then((res) => { if (res.ok) cache.put(e.request, res.clone()); return res; })
         .catch(() => cached);
       return cached || network;
