@@ -14,6 +14,7 @@ import { addCard, dueCards, grade, boxCounts } from './srs.js';
 import { buildLessonPrompt, buildExamPrompt, buildWritingPrompt } from './prompts.js';
 import { generateLesson, generateExam, gradeWriting, AIError } from './ai.js';
 import { aulaFixa, provaFixa, corrigeEscrita } from './curso/index.js';
+import * as recorder from './recorder.js';
 
 let X; // contexto do app
 export function initLearn(ctx) { X = ctx; }
@@ -282,15 +283,86 @@ function bySkill(results) {
   return Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, pctOf(v.ok, v.n)]));
 }
 
-/* Fala: o professor diz a frase, o aluno repete. Devolve notas 0-10 (null = sem microfone/pulou). */
+/* Sem internet (ou sem reconhecimento de voz), a fala vira AUTOAVALIAÇÃO: o aluno ouve, repete em voz
+   alta e, se quiser, grava e se escuta (só quando toca em "Gravar"; o áudio fica na memória da tela e
+   não é enviado nem salvo). Assim a prova final continua possível offline. */
+const falaOffline = () => navigator.onLine === false || !X.canUseMic();
+const AUTO = [
+  { nota: 9, label: 'Saiu bem', ico: 'check' },
+  { nota: 6, label: 'Mais ou menos', ico: 'minus' },
+  { nota: 3, label: 'Não saiu', ico: 'x' },
+];
+function selfCard(box, p, { title, i, n, onGrade, onSkip }) {
+  const polite = X.S().polite;
+  const pode = recorder.canRecord;
+  box.innerHTML = `<div class="card ex-card center auto-fala">
+    <div class="ex-count">${title} · ${i + 1} de ${n} · autoavaliação</div>
+    <div class="target" style="margin:12px 0">${esc(p.en)}</div>
+    <div class="muted small">${esc(p.pt || '')}</div>
+    <p class="small auto-aviso">${icon('wifi-off')} ${polite ? 'Sem internet o app não consegue corrigir sua pronúncia. Ouça, repita em voz alta e avalie com sinceridade.' : 'Sem internet eu não consigo te ouvir direito, porra. Ouve, repete em voz alta e se avalia com honestidade, nada de se enganar.'}</p>
+    <div class="dock-row" style="margin-top:8px">
+      <button class="round" id="sListen" title="Ouvir" aria-label="Ouvir">${icon('volume-2')}</button>
+      ${pode ? `<button class="btn sm outline" id="sRec">${icon('mic')} Gravar e me ouvir</button>` : ''}
+      <button class="round" id="sSkip" title="Pular" aria-label="Pular">${icon('chevron-right')}</button>
+    </div>
+    <div class="muted small" id="recInfo">${pode ? 'Opcional: a gravação só acontece quando você toca em Gravar e some ao sair da frase.' : ''}</div>
+    <div class="auto-notas">${AUTO.map((a) => `<button class="btn sm ${a.nota >= 9 ? 'primary' : 'outline'}" data-auto="${a.nota}">${icon(a.ico)} ${a.label}</button>`).join('')}</div>
+  </div>`;
+  let audio = null, gravando = false;
+  const solta = () => { try { audio?.pause(); } catch {} audio = null; };
+  X.$('#sListen', box).onclick = () => { solta(); X.say([{ text: p.en }]); };
+  X.$('#sSkip', box).onclick = () => { X.stopAudio(); solta(); if (gravando) recorder.stopRecording(); onSkip(); };
+  const rec = X.$('#sRec', box);
+  if (rec) rec.onclick = async () => {
+    if (gravando) return recorder.stopRecording();
+    X.stopAudio(); solta();
+    const info = X.$('#recInfo', box);
+    gravando = true; rec.classList.add('listening'); rec.innerHTML = `${icon('square')} Gravando… toque para parar`;
+    let r = null;
+    try { r = await recorder.record({ maxMs: 12000, waitMs: 6000, onLevel: (l) => { if (info) info.innerHTML = `<span class="meter"><i style="width:${Math.round(l * 100)}%"></i></span>`; } }); }
+    catch (e) { if (info) info.textContent = e?.name === 'NotAllowedError' ? 'Permissão do microfone negada.' : 'Não deu para gravar neste aparelho.'; }
+    gravando = false;
+    if (!box.contains(rec)) return;
+    rec.classList.remove('listening'); rec.innerHTML = `${icon('mic')} Gravar de novo`;
+    if (!r) { if (info && !info.textContent) info.textContent = 'Não ouvi nada. Tente de novo mais perto do microfone.'; return; }
+    audio = new Audio(`data:${r.mime};base64,${r.b64}`);
+    if (info) info.innerHTML = `<button class="btn sm" id="sPlay">${icon('play')} Ouvir minha gravação</button> <button class="btn sm outline" id="sModel">${icon('volume-2')} Ouvir o modelo</button>`;
+    X.$('#sPlay', box).onclick = () => { X.stopAudio(); audio.currentTime = 0; audio.play().catch(() => {}); };
+    X.$('#sModel', box).onclick = () => { try { audio.pause(); } catch {} X.say([{ text: p.en }]); };
+    audio.play().catch(() => {});
+  };
+  X.$$('[data-auto]', box).forEach((b) => (b.onclick = () => { X.stopAudio(); solta(); if (gravando) recorder.stopRecording(); onGrade(+b.dataset.auto); }));
+  X.say([{ text: p.en }]);
+}
+
+/* Fala: o professor diz a frase, o aluno repete. Devolve notas 0-10 (null = sem microfone/pulou).
+   notas.auto = quantas notas vieram da autoavaliação offline. */
 function runSpeaking(box, phrases, { live, tries = 2, title = 'Prática oral' }) {
   return new Promise((resolve) => {
     const notas = [];
+    notas.auto = 0;
     let i = 0, attempt = 0;
     const show = () => {
       if (!live()) return;
       if (i >= phrases.length) return resolve(notas);
       const p = phrases[i];
+      if (falaOffline()) {
+        return selfCard(box, p, {
+          title, i, n: phrases.length,
+          onSkip: () => { notas.push(null); i++; attempt = 0; show(); },
+          onGrade: async (nota) => {
+            notas.push(nota); notas.auto++;
+            X.setMood(nota >= 9 ? 'feliz' : nota >= 6 ? 'neutral' : 'irritada');
+            const polite = X.S().polite;
+            const fala = nota >= 9 ? (polite ? 'Ótimo, vamos em frente.' : 'Se você diz, eu acredito. Mais ou menos.')
+              : nota >= 6 ? (polite ? 'Tudo bem, repita depois com calma.' : 'Mais ou menos, né? Pelo menos é honesto, porra.')
+              : (polite ? 'Sem problema, treine essa frase de novo depois.' : 'Pelo menos admitiu, caralho. Treina essa depois.');
+            await X.say([{ text: fala, lang: 'pt-BR' }]);
+            if (!live()) return;
+            i++; attempt = 0; show();
+          },
+        });
+      }
       box.innerHTML = `<div class="card ex-card center">
         <div class="ex-count">${title} · ${i + 1} de ${phrases.length}</div>
         <div class="target" style="margin:12px 0">${esc(p.en)}</div>
@@ -547,11 +619,11 @@ export function renderExamC(kind, id) {
     if (final) recordFinal(level.id, score, skills, passed); else recordUnitExam(unit.id, score, skills);
     dropPack(packId); // próxima tentativa recebe uma prova nova
 
-    examResult(box, { final, level, unit, score, skills, passed, weak, missing, results, written, tasks, wErr });
+    examResult(box, { final, level, unit, score, skills, passed, weak, missing, results, written, tasks, wErr, falaAuto: fala.auto || 0 });
   })();
 }
 
-function examResult(box, { final, level, unit, score, skills, passed, weak, missing, results, written, tasks, wErr }) {
+function examResult(box, { final, level, unit, score, skills, passed, weak, missing, results, written, tasks, wErr, falaAuto = 0 }) {
   const polite = X.S().polite;
   const band = score >= PASS.advance ? 'ok' : score >= PASS.retry ? 'mid' : 'low';
   let verdict;
@@ -575,6 +647,7 @@ function examResult(box, { final, level, unit, score, skills, passed, weak, miss
       ${missing.length ? warn(`Sem nota em: ${missing.map((k) => SKILLS[k]).join(', ')}. A prova final exige todas as habilidades${missing.includes('conversacao') ? ' (use um navegador com microfone)' : ''}.`) : ''}
       ${weak.length ? warn(`Abaixo de ${PASS.finalSkillMin}%: ${weak.map((k) => SKILLS[k]).join(', ')}.`) : ''}
       ${wErr ? warn(`A escrita não foi corrigida: ${esc(wErr)}`) : ''}
+      ${falaAuto ? warn(`Nota de fala por autoavaliação (sem internet) em ${falaAuto} frase${falaAuto > 1 ? 's' : ''}. Quando estiver online, refaça a prova para ter a pronúncia corrigida.`) : ''}
     </div>
     ${written ? `<div class="card"><h3 class="step-h">${icon('pencil')} Correção da escrita</h3>${tasks.map((t, i) => `<div class="correction"><b>${esc(t.pergunta)}</b><div class="small muted">Você: ${esc(t.answer || '(vazio)')}</div>${written[i].correcao ? `<div>${icon('check')} ${written[i].exemplo ? '<b>Exemplo de resposta:</b> ' : ''}${esc(written[i].correcao)}</div>` : ''}<div class="small"><b>${written[i].nota.toFixed(1)}/10</b> · ${esc(written[i].comentario)}</div></div>`).join('')}</div>` : ''}
     ${results.some((r) => !r.ok) ? `<details class="card plan-card"><summary><b>${icon('x')} Questões erradas (${results.filter((r) => !r.ok).length})</b></summary>${results.filter((r) => !r.ok).map((r) => `<div class="correction"><b>${esc(r.item.pergunta)}</b>${r.item.audio ? `<div class="small muted">Áudio: "${esc(r.item.audio)}"</div>` : ''}<div class="small muted">Você: ${esc(r.answer)}</div><div>${icon('check')} ${esc(r.item.resposta)}</div><div class="small">${esc(r.item.explicacao)}</div></div>`).join('')}</details>` : ''}
