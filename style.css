@@ -855,6 +855,17 @@ button.mini-card:active { transform: scale(.97); }
 .result-card > .tag { margin-bottom: 4px; }
 .exam-warn { display: flex; gap: 6px; align-items: flex-start; text-align: left; padding: 8px 10px; border-radius: var(--r-md); background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--warn-text, var(--text)); }
 .exam-warn .ic { margin-top: 2px; }
+/* Offline: aviso no Conversar e fala por autoavaliação nas aulas/provas */
+.offline-banner { background: color-mix(in srgb, var(--warn, #f59e0b) 12%, transparent); border-color: color-mix(in srgb, var(--warn, #f59e0b) 45%, transparent); }
+.offline-banner a { font-weight: 700; white-space: nowrap; }
+.auto-fala .auto-aviso { display: flex; gap: 6px; align-items: flex-start; text-align: left; margin: 10px 0 0; padding: 8px 10px; border-radius: var(--r-md, 12px); background: color-mix(in srgb, var(--warn, #f59e0b) 12%, transparent); }
+.auto-fala .auto-aviso .ic { flex: none; margin-top: 2px; }
+.auto-fala .dock-row { flex-wrap: wrap; justify-content: center; gap: 10px; }
+.auto-fala #recInfo { min-height: 1.4em; margin: 8px 0 4px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+.auto-fala #recInfo .meter { width: 160px; }
+.auto-fala .auto-notas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.auto-fala .auto-notas .btn { padding-inline: 6px; justify-content: center; }
+@media (max-width: 360px) { .auto-fala .auto-notas { grid-template-columns: 1fr; } }
 .lt-level { display: inline-flex; align-items: center; gap: 10px; margin-bottom: var(--sp-2); }
 .lt-level b { font-family: var(--font-display); font-size: var(--fs-lg); }
 .empty-card .big-ico { margin-bottom: var(--sp-2); }

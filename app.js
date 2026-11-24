@@ -260,6 +260,25 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') { flushTime(); stopAudio(); voice.stopListening(); recorder.stopRecording(); }
 });
 
+/* Sem internet: a aba Conversar avisa na hora (o professor pensa com a IA). Aulas e provas seguem offline. */
+const isOffline = () => navigator.onLine === false;
+function offlineBanner(inChat = false) {
+  if (!isOffline()) return '';
+  const rude = !S().polite && T().id === 'pavio';
+  const txt = inChat
+    ? (rude ? 'Sem internet, porra. Eu penso com a IA, então a conversa fica parada até a conexão voltar.' : 'Sem internet. A conversa usa a IA e continua quando a conexão voltar.')
+    : (rude ? 'Sem internet, caralho! Conversar precisa de conexão. Enquanto isso, as aulas e provas funcionam offline.' : 'Sem internet: Conversar precisa de conexão. As aulas e provas do curso funcionam offline.');
+  return `<div class="banner offline-banner" role="status">📡 ${esc(txt)} <a href="#learn">Ir para as aulas</a></div>`;
+}
+const offlineGuard = () => {
+  if (!isOffline()) return false;
+  toast(S().polite ? 'Sem internet: essa conversa precisa de conexão.' : 'Sem internet, porra! Essa conversa precisa de conexão.', 3500);
+  return true;
+};
+const onNetChange = () => { if (/^#(talk|chat)(\/|$)/.test(location.hash) && !busy) route(); };
+addEventListener('online', onNetChange);
+addEventListener('offline', onNetChange);
+
 let train = null; // { idx, elapsed, theme }
 function startTrain() { train = { idx: 0, elapsed: 0, theme: nextTheme() }; goStage(); }
 function goStage() {
@@ -526,6 +545,7 @@ function renderTalk() {
       <h1>Conversar</h1>
       <p class="muted">Por voz ou texto. ${art} ${esc(t.name)} adapta vocabulário, velocidade e perguntas ao seu nível (${lv.id}).</p>
     </header>
+    ${offlineBanner()}
     <button class="card papo-card ${/Pavio/.test(t.name) ? 'com-pavio' : ''}" id="papoLivre">
       <span class="papo-ico">${icon('message-circle')}</span>
       <span class="grow"><b>Papo livre com ${art.toLowerCase()} ${esc(t.name.replace('Professor ', ''))}</b>
@@ -555,6 +575,7 @@ function renderTalk() {
 
 function startConvo(id) {
   const c = getConvo(id); if (!c) return;
+  if (offlineGuard()) return;
   const u = getUnit(c.unit);
   newChat(c.id, '', {
     mode: 'guiada', cefr: c.level, convoId: c.id,
@@ -563,6 +584,7 @@ function startConvo(id) {
   go('chat/' + c.id);
 }
 function startMode(mode) {
+  if (offlineGuard()) return;
   const begin = (scenario) => { closeModal(); newChat('modo:' + mode, scenario?.topicFree || '', { mode, cefr: S().cefr, scenario: scenario?.topicFree ? null : scenario }); go('chat/modo:' + mode); };
   if (mode === 'livre') return askFreeTopic();
   // Papo livre: abre na hora, o Pavio escolhe o assunto e fala primeiro.
@@ -938,6 +960,7 @@ function renderChat(arg) {
           <div class="talk-status" id="chatStatus" data-state="idle" role="status" aria-live="polite"><i aria-hidden="true"></i><span>Sua vez</span></div>
         </div>
       </div>
+      ${offlineBanner(true)}
       ${info.goal ? `<div class="goal">${icon('target')}<span><b>Meta:</b> ${esc(info.goal)}</span></div>` : ''}
       <div class="messages" id="msgs"></div>
       <div class="interim" id="interim"></div>
@@ -992,7 +1015,7 @@ function renderChat(arg) {
     else if (b.hasAttribute('data-retry')) askAI(lastAudio);
   };
 
-  if (!chat.messages.length) askAI();
+  if (!chat.messages.length && !isOffline()) askAI();
   if (arg === '__summary') endSession();
 }
 
