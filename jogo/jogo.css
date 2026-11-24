@@ -534,6 +534,7 @@ html, body { background: var(--claro); color: var(--tinta-txt); }
 .ganhos { color: var(--tinta-txt); }
 .missao-card small { color: var(--verde-esc); }
 .missao-card ul, .missao-nota { color: var(--mudo); }
+.missao-card li.missao-offline { color: #b45309; }
 .missao-entrada input { background: #F7FAF8; border-color: var(--linha); color: var(--tinta-txt); }
 .missao-entrada input:focus { border-color: #22C55E; }
 .btn-enviar { background: linear-gradient(180deg, #16A34A, #15803D); color: #fff; box-shadow: 0 4px 0 #14532D; }

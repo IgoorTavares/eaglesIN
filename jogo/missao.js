@@ -110,12 +110,17 @@ export function telaMissao(app, M, nav) {
     painel.innerHTML = `<div class="missao-card">
       <small>Seu objetivo</small><p>${esc(X.objetivo)}</p>
       <ul><li>Conversa livre, em inglês, com ${esc(nomeNpc)}</li><li>Até ${MAX_FALAS} falas suas — fale no microfone ou digite</li>
-      <li>${premiada ? 'Já premiada hoje: agora é só treino' : 'Recompensa de hoje: até <b>60 moedas</b> e 30 XP'}</li></ul>
+      <li>${premiada ? 'Já premiada hoje: agora é só treino' : 'Recompensa de hoje: até <b>60 moedas</b> e 30 XP'}</li>
+      ${navigator.onLine === false ? '<li class="missao-offline"><b>Sem internet:</b> a missão usa a IA e só começa com conexão. As fases do mapa funcionam offline.</li>' : ''}</ul>
       <div class="fim-botoes"><button class="btn-jogar" id="comeca">Começar</button><button class="btn-sec" id="outra">Outra missão</button></div>
     </div>`;
     sobe();
     $('#outra').onclick = () => { sfx('toque'); calar(); idx = (idx + 1) % MISSOES[M.id].length; monta(); };
-    $('#comeca').onclick = () => { sfx('toque'); calar(); comeca(); };
+    $('#comeca').onclick = () => {
+      sfx('toque'); calar();
+      if (navigator.onLine === false) return pavioDiz('Sem internet, porra! Missão precisa da IA. Volta pro mapa e joga as fases, que essas funcionam offline.', 'impaciente');
+      comeca();
+    };
     pavio.pose('debochado', false); pavio.acao('pulo');
     pavioDiz(`Missão sem roteiro, meu querido. Aqui não tem resposta pronta: ${X.objetivo.charAt(0).toLowerCase() + X.objetivo.slice(1)} Se vira, porra!`, 'debochado');
 
