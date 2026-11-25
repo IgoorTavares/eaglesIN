@@ -42,7 +42,14 @@ const fmt = (sec) => { sec = Math.max(0, Math.round(sec)); return `${String(Math
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const cleanWord = (w) => w.replace(/[^\p{L}\p{N}'-]/gu, '');
 // Sem internet, o microfone usa o reconhecimento do próprio aparelho.
-const useGeminiEars = () => S().listenMode === 'gemini' && recorder.canRecord && navigator.onLine !== false;
+let earsOff = false; // a IA recusou o áudio (chave/cota) nesta sessão: usa a transcrição do navegador
+const useGeminiEars = () => S().listenMode === 'gemini' && !earsOff && recorder.canRecord && navigator.onLine !== false;
+/* Pede a permissão do microfone no toque; se estiver bloqueado, mostra o passo a passo. */
+async function micPronto() {
+  const p = await voice.garantirMic();
+  if (!p.ok) voice.mostraAjudaMic(p.motivo);
+  return p.ok;
+}
 const canUseMic = () => useGeminiEars() || voice.canListen;
 const isTalking = () => voice.isSpeaking() || eleven.isPlaying();
 
@@ -195,7 +202,8 @@ async function preparaFala(parts) {
   const ps = parts.filter((p) => p.text && (pref !== 'speech' || (p.lang || 'en-US') !== 'pt-BR'));
   if (!ps.length) return;
   ps.slice(1).forEach((p) => prepara(p.text, { quem: 'pavio', lang: p.lang || 'en-US' }));
-  await esperaInicio(ps[0].text, { quem: 'pavio', lang: ps[0].lang || 'en-US' }, 4000);
+  // Resposta imediata: espera a voz natural no máximo 1,2 s; se não ficou pronta, o texto já aparece.
+  await esperaInicio(ps[0].text, { quem: 'pavio', lang: ps[0].lang || 'en-US' }, 1200);
 }
 async function say(parts, mood, opts = {}) {
   const my = ++sayToken;
@@ -862,6 +870,7 @@ function runSession({ title, themeId, mode, items, goal }) {
 async function hear(expected) {
   const interim = () => $('#interim');
   try {
+    if (!(await micPronto())) return null;
     activity('listening');
     if (useGeminiEars()) {
       const audio = await recorder.record({ onLevel: (l) => { const i = interim(); if (i) i.innerHTML = `<span class="meter"><i style="width:${Math.round(l * 100)}%"></i></span>`; }, maxMs: 15000 });
@@ -871,12 +880,20 @@ async function hear(expected) {
       const j = await judgePronunciation(expected, audio);
       return { nota: j.nota, erradas: j.erradas, dica: j.dica, transcricao: j.transcricao };
     }
-    const r = await voice.listen({ onInterim: (t) => { const i = interim(); if (i) i.textContent = t; } });
+    // alvos: assim que a frase esperada aparece, a nota sai na hora (sem esperar o silêncio)
+    const r = await voice.listen({ alvos: expected ? [expected] : [], onInterim: (t) => { const i = interim(); if (i) i.textContent = t; } });
     if (!r.text) { toast(naoOuvi('Não ouvi nada. Fala mais alto!')); return null; }
     const res = compare(expected, [r.text, ...r.alternatives], r.confidence);
     return { nota: res.score * 10, erradas: res.words.filter((w) => !w.ok).map((w) => w.text), dica: '', transcricao: r.text };
   } catch (e) {
-    const m = e instanceof AIError ? e.message : e.name === 'NotAllowedError' ? 'Permissão do microfone negada.' : voice.listenErrorMsg(e);
+    if (e instanceof AIError && voice.canListen) {
+      // A IA não conseguiu ouvir (chave recusada, cota, rede): passa para a transcrição do navegador.
+      earsOff = true;
+      toast('A IA não conseguiu ouvir agora. Toque no microfone de novo: vou usar o reconhecimento do aparelho.', 4500);
+      return null;
+    }
+    if (e?.name === 'NotAllowedError') { voice.mostraAjudaMic('negado'); return null; }
+    const m = e instanceof AIError ? e.message : voice.listenErrorMsg(e);
     if (m) toast(m, 4000);
     if (e instanceof AIError) setMood('chocada');
     return null;
@@ -1079,6 +1096,7 @@ async function startListening() {
 async function recordTurn() {
   if (busy) return;
   stopAudio();
+  if (!(await micPronto())) return;
   const mic = $('#mic'), interim = $('#interim');
   mic?.classList.add('listening');
   activity('listening');
@@ -1088,7 +1106,8 @@ async function recordTurn() {
     if (!audio) return toast(S().polite ? 'Não ouvi nada. Tente de novo.' : naoOuvi('Não ouvi nada. Fala mais perto!'));
     if (currentRoute === 'chat') sendAudio(audio);
   } catch (e) {
-    toast(e.name === 'NotAllowedError' ? 'Permissão do microfone negada.' : 'Erro no microfone: ' + (e.message || e.name), 4000);
+    if (e.name === 'NotAllowedError') voice.mostraAjudaMic('negado');
+    else toast('Erro no microfone: ' + (e.message || e.name), 4000);
     $('#textbox')?.classList.remove('hidden');
   } finally { endActivity('listening'); mic?.classList.remove('listening'); if (interim) interim.textContent = ''; }
 }
