@@ -238,14 +238,17 @@ export function telaFase(app, m, i, F, nav) {
   }
 
   /* Microfone: devolve o texto dito ('' se nada). */
-  async function ouvir(btn, txtEl, textoOuvindo) {
+  /* alvos: respostas possíveis; quando o aluno termina uma delas, a resposta sai na hora.
+     A permissão do microfone é pedida no 1º toque (voice.js mostra o passo a passo se estiver bloqueado). */
+  async function ouvir(btn, txtEl, textoOuvindo, alvos = []) {
     if (voz.isListening()) { voz.stopListening(); return null; }
     const txt0 = txtEl?.innerHTML;
     calar(); btn.classList.add('ouvindo'); if (txtEl) txtEl.innerHTML = textoOuvindo;
     pavio.pose('escutando');
-    let r = '';
-    try { r = await voz.listen({ lang: 'en-US' }); } catch { r = ''; }
+    let r = '', falhou = false;
+    try { r = await voz.listen({ lang: 'en-US', alvos }); } catch (e) { r = ''; falhou = !voz.listenErrorMsg(e) || /^mic-/.test(e?.message || ''); }
     btn.classList.remove('ouvindo'); if (txtEl) txtEl.innerHTML = txt0;
+    if (falhou) { pavio.pose('neutro'); return null; } // o aviso de permissão já está na tela
     return typeof r === 'string' ? r : r?.text || '';
   }
   // Opção com letra (A, B, C, D) e o visto que aparece quando acerta.
@@ -268,7 +271,7 @@ export function telaFase(app, m, i, F, nav) {
     $$('.opcao', painel).forEach((b) => b.onclick = () => { sfx('toque'); responde(T, ops[+b.dataset.i].certo, b, { porque: ops[+b.dataset.i].porque, moedas: MOEDAS.toque }); });
     const mic = $('#mic');
     if (mic) mic.onclick = async () => {
-      const dito = await ouvir(mic, $('#micTxt'), '<b>Ouvindo…</b> fale em inglês<br>toque de novo para parar');
+      const dito = await ouvir(mic, $('#micTxt'), '<b>Ouvindo…</b> fale em inglês<br>toque de novo para parar', [...ops.map((o) => o.t), ...(T.aceita || [])]);
       if (dito === null) return;
       if (!dito) return pavioDiz(silencio(), 'impaciente');
       let best = -1, nota = 0;
@@ -323,7 +326,7 @@ export function telaFase(app, m, i, F, nav) {
     $('#deNovo').onclick = () => { calar(); sopra(); };
     $('#semMic').onclick = () => { calar(); montaMonte({ ...T, extras: T.extras || [] }); pavioDiz('Tá bom, preguiçoso. Então monta a frase aí, porra.', 'impaciente'); };
     mic.onclick = async () => {
-      const dito = await ouvir(mic, $('#micTxt'), `<b>Ouvindo…</b><br><span class="alvo">${esc(T.ok)}</span>`);
+      const dito = await ouvir(mic, $('#micTxt'), `<b>Ouvindo…</b><br><span class="alvo">${esc(T.ok)}</span>`, [T.ok]);
       if (dito === null) return;
       if (!dito) return pavioDiz(silencio(), 'impaciente');
       const nota = parecido(dito, T.ok);

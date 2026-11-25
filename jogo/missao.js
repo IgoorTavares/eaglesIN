@@ -153,9 +153,11 @@ export function telaMissao(app, M, nav) {
         calar(); mic.classList.add('ouvindo'); pavio.pose('escutando');
         txt.placeholder = 'Ouvindo… fale em inglês';
         let r = '';
-        try { r = await voz.listen({ lang: 'en-US' }); } catch { r = ''; }
+        let semPermissao = false;
+        try { r = await voz.listen({ lang: 'en-US' }); } catch (e) { r = ''; semPermissao = !voz.listenErrorMsg(e); }
         if (!vivo()) return;
         mic.classList.remove('ouvindo'); txt.placeholder = 'Responda em inglês…';
+        if (semPermissao) return pavio.pose('neutro'); // o passo a passo do microfone já está na tela
         const dito = typeof r === 'string' ? r : r?.text || '';
         if (!dito) return pavioDiz('Não ouvi porra nenhuma. Fala de novo ou digita aí.', 'pensando');
         envia(dito, true);

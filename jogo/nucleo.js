@@ -120,9 +120,10 @@ export async function falar(quem, texto, { lang, balao } = {}) {
   const vaiGemini = !semSom && !(eleven.elevenReady() && !vozEstado.elevenFalhou) && vozGeminiPronta();
   if (!semSom) botaoPular(true);
   if (balao && vaiGemini) {
-    // Texto e voz juntos: "digitando…" até o começo da fala ficar pronto (no máximo 3,5 s).
+    // Texto e voz juntos, mas sem fazer o aluno esperar: no máximo 1,2 s de "digitando…"
+    // (falas já geradas saem na hora; se a voz natural demorar, o texto aparece e ela entra quando ficar pronta).
     balao.innerHTML = '<span class="digitando"><i></i><i></i><i></i></span>'; balao.hidden = false;
-    await Promise.race([esperaInicio(texto, { quem: quem === 'pavio' ? 'pavio' : 'npc', lang: lang || 'en-US' }, 3500), pulou]);
+    await Promise.race([esperaInicio(texto, { quem: quem === 'pavio' ? 'pavio' : 'npc', lang: lang || 'en-US' }, 1200), pulou]);
     if (id !== falaId) return false;
   }
   if (balao) { balao.innerHTML = texto; balao.hidden = false; balao.classList.remove('entra'); void balao.offsetWidth; balao.classList.add('entra'); }
