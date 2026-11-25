@@ -25,6 +25,16 @@ export class VozError extends Error { constructor(kind, msg) { super(msg); this.
 const CACHE = 'voz-gemini-v1';
 let pausaAte = 0; // depois de erro de cota/servidor, descansa e usa a voz do aparelho
 export const vozGeminiPronta = () => !!state.settings.apiKey?.trim() && state.settings.vozGemini !== false && Date.now() > pausaAte && navigator.onLine !== false;
+let ultimoErro = null; // { kind, msg } da última falha (para mostrar nas configurações)
+/* Situação da voz natural, em português, para a tela de configurações. */
+export function estadoVoz() {
+  if (state.settings.vozGemini === false) return { ok: false, txt: 'Voz natural desligada: usando a voz do aparelho.' };
+  if (!state.settings.apiKey?.trim()) return { ok: false, txt: 'Falta a chave do Gemini neste aparelho: usando a voz do aparelho.' };
+  if (navigator.onLine === false) return { ok: false, txt: 'Sem internet: usando a voz do aparelho.' };
+  if (ultimoErro?.kind === 'badkey') return { ok: false, txt: 'A chave do Gemini foi recusada. Confira a chave e toque em Testar.' };
+  if (Date.now() <= pausaAte) return { ok: false, txt: `Voz natural descansando (${ultimoErro?.msg || 'erro'}). Toque em Testar para tentar já.` };
+  return { ok: true, txt: modeloOk ? `Voz natural ativa (${modeloOk[1]}).` : 'Voz natural pronta: toque em Testar para conferir.' };
+}
 
 const memoria = new Map(); // chave -> objectURL (nesta sessão)
 const chaveDe = (quem, lang, texto) => `${quem}|${lang}|${texto}`;
@@ -166,11 +176,13 @@ export async function audioDe(texto, { quem = 'npc', lang = 'en-US' } = {}) {
       catch (e) { erro = e; if (!['model', 'vazio'].includes(e.kind)) break; }
     }
     if (!blob) {
+      ultimoErro = { kind: erro?.kind || 'http', msg: erro?.message || '' };
       // cota/servidor: descansa 10 min; chave recusada: descansa até recarregar
       if (['quota', 'http', 'model', 'vazio'].includes(erro?.kind)) pausaAte = Date.now() + 10 * 60 * 1000;
       if (erro?.kind === 'badkey') pausaAte = Infinity;
       throw erro || new VozError('http', 'Falhou a voz do Gemini.');
     }
+    ultimoErro = null;
     try { await cache?.put(reqKey, new Response(blob, { headers: { 'Content-Type': 'audio/wav' } })); } catch {}
     return URL.createObjectURL(blob);
   })();
@@ -182,7 +194,7 @@ export async function audioDe(texto, { quem = 'npc', lang = 'en-US' } = {}) {
 /* Botão "Testar voz natural": tenta de novo mesmo se estava descansando e conta o que houve. */
 export async function testaVoz() {
   if (!state.settings.apiKey?.trim()) return { ok: false, msg: 'Falta a chave do Gemini nas configurações do app.' };
-  pausaAte = 0; modeloOk = null;
+  pausaAte = 0; modeloOk = null; ultimoErro = null;
   const frase = 'Fala, meu querido! Agora eu tenho voz de gente, porra!';
   for (const p of pedacos(frase)) memoria.delete(chaveDe('pavio', 'pt-BR', p));
   try {

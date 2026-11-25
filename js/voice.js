@@ -39,15 +39,24 @@ function pickVoice(lang, preferredURI, male) {
 
 /* iPhone (principalmente no app instalado na tela inicial): a voz do aparelho só toca depois
    de uma fala iniciada DENTRO de um toque. No 1º toque na tela, fala um texto mudo para destravar. */
-let falaDestravada = false;
+let falaDestravada = !!navigator.userActivation?.hasBeenActive;
+let pendente = null; // fala que tentou tocar antes do 1º toque (o iPhone bloqueia): toca no 1º toque
 function destravaFala() {
   if (falaDestravada || !canSpeak) return;
   falaDestravada = true;
-  try { if (speechSynthesis.paused) speechSynthesis.resume(); const u = new SpeechSynthesisUtterance(' '); u.volume = 0; u.rate = 2; speechSynthesis.speak(u); } catch {}
   loadVoices();
+  try {
+    if (speechSynthesis.paused) speechSynthesis.resume();
+    if (pendente) { const p = pendente; pendente = null; speak(p.text, p.opts); return; } // a saudação perdida toca agora
+    const u = new SpeechSynthesisUtterance(' '); u.volume = 0; u.rate = 2; speechSynthesis.speak(u);
+  } catch {}
 }
 addEventListener('pointerdown', destravaFala, { passive: true });
 addEventListener('touchend', destravaFala, { passive: true });
+addEventListener('keydown', destravaFala, { passive: true });
+// iPhone: depois de o app ir para o fundo, a voz às vezes fica "presa". Ao voltar, zera a fila.
+document.addEventListener('visibilitychange', () => { if (IOS && document.visibilityState === 'visible' && canSpeak) { try { speechSynthesis.cancel(); lastCancel = Date.now(); } catch {} } });
+let lastCancel = 0;
 
 /* Se a voz não começar (2 falas seguidas), mostra uma dica uma vez por sessão em vez de ficar mudo. */
 let semVozSeguidas = 0, dicaVozMostrada = false;
@@ -66,8 +75,16 @@ function dicaSemVoz() {
 /* Fala um texto. Retorna uma Promise resolvida no fim da fala.
    opts: { lang, rate, voiceURI, onStart } */
 export function speak(text, opts = {}) {
+  if (!canSpeak || !text) return Promise.resolve();
+  // Antes de qualquer toque o iPhone/Android não deixam falar: guarda a última fala e toca no 1º toque.
+  if (!falaDestravada && !navigator.userActivation?.hasBeenActive && (IOS || /Android/i.test(navigator.userAgent))) {
+    pendente = { text, opts };
+    return new Promise((r) => setTimeout(r, Math.min(4000, 600 + text.length * 40))); // tempo de leitura do balão
+  }
+  // iPhone: falar logo depois de "cancel()" às vezes some. Espera um instante.
+  const espera = IOS ? Math.max(0, 150 - (Date.now() - lastCancel)) : 0;
+  if (espera) return new Promise((r) => setTimeout(r, espera)).then(() => speak(text, opts));
   return new Promise((resolve) => {
-    if (!canSpeak || !text) return resolve();
     try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch {}
     const u = new SpeechSynthesisUtterance(text);
     const lang = opts.lang || 'en-US';
@@ -98,7 +115,7 @@ export async function speakSeq(parts, opts = {}) {
   for (const p of parts) await speak(p.text, { ...opts, lang: p.lang || 'en-US' });
 }
 
-export function stopSpeaking() { if (canSpeak) speechSynthesis.cancel(); }
+export function stopSpeaking() { if (canSpeak) { speechSynthesis.cancel(); lastCancel = Date.now(); } }
 export function isSpeaking() { return canSpeak && speechSynthesis.speaking; }
 
 /* ---------- permissão do microfone ----------
