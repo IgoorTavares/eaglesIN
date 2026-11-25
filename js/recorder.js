@@ -4,6 +4,8 @@
    Para sozinho quando você para de falar.
    ========================================================== */
 
+import { modoOuvir } from './sessao-audio.js';
+
 const AC = window.AudioContext || window.webkitAudioContext;
 export const canRecord = !!(navigator.mediaDevices?.getUserMedia && AC);
 
@@ -15,9 +17,13 @@ export function stopRecording() { active?.stop(); }
    Retorna { b64, mime, seconds } ou null se ninguém falou.
    onLevel(0..1) recebe o volume para animar o microfone. */
 export async function record({ onLevel, maxMs = 30000, silenceMs = 1500, waitMs = 8000 } = {}) {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
-  });
+  const solta = modoOuvir(); // iPhone: modo que permite o microfone
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+    });
+  } catch (e) { solta(); throw e; }
   const ctx = new AC();
   if (ctx.state === 'suspended') await ctx.resume();
   const src = ctx.createMediaStreamSource(stream);
@@ -33,6 +39,7 @@ export async function record({ onLevel, maxMs = 30000, silenceMs = 1500, waitMs 
       done = true; active = null;
       try { proc.disconnect(); src.disconnect(); } catch {}
       stream.getTracks().forEach((t) => t.stop());
+      solta();
       const rate = ctx.sampleRate;
       try { await ctx.close(); } catch {}
       if (!spoke) return resolve(null);

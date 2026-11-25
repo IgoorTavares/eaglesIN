@@ -870,9 +870,9 @@ function runSession({ title, themeId, mode, items, goal }) {
 async function hear(expected) {
   const interim = () => $('#interim');
   try {
-    if (!(await micPronto())) return null;
     activity('listening');
     if (useGeminiEars()) {
+      if (!(await micPronto())) return null; // só a gravação precisa do pedido antes; o reconhecimento pede sozinho no toque
       const audio = await recorder.record({ onLevel: (l) => { const i = interim(); if (i) i.innerHTML = `<span class="meter"><i style="width:${Math.round(l * 100)}%"></i></span>`; }, maxMs: 15000 });
       if (!audio) { toast(naoOuvi('Não ouvi nada. Fala mais alto!')); return null; }
       const i = interim(); if (i) i.innerHTML = '';

@@ -6,6 +6,7 @@
    A chave fica só no localStorage do aparelho.
    ========================================================== */
 import { state } from './store.js';
+import { modoTocar } from './sessao-audio.js';
 
 const API = 'https://api.elevenlabs.io/v1';
 /* Modelo rápido e barato (metade dos créditos), fala inglês e português. */
@@ -26,8 +27,8 @@ export const elevenReady = () => !!(cfg().key && voiceFor());
 const player = new Audio();
 player.preload = 'auto';
 player.setAttribute('playsinline', '');
-// iPhone: toca mesmo com a chave de silencioso ligada (Safari 16.4+), como um player de mídia.
-try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+// iPhone: o modo 'playback' (toca mesmo no silencioso) só fica ligado ENQUANTO o player toca.
+// Fixo desde a abertura, ele bloqueava o microfone e calava a voz do aparelho no app instalado.
 /* 0,2 s de silêncio de verdade (o iPhone ignora um WAV vazio e não libera o player). */
 function silenceURL() {
   const n = 1600, b = new ArrayBuffer(44 + n), v = new DataView(b);
@@ -111,10 +112,11 @@ export function playURL(url, { rate = 1 } = {}) {
   stop();
   return new Promise((resolve, reject) => {
     let done = false;
+    const solta = modoTocar();
     let guard = setTimeout(() => finish(), 60000); // trava de segurança
     const finish = (err) => {
       if (done) return;
-      done = true; stopCurrent = null;
+      done = true; stopCurrent = null; solta();
       clearTimeout(guard);
       player.onended = player.onerror = player.onloadedmetadata = null;
       try { player.pause(); } catch {}
