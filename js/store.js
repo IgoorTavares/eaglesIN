@@ -51,7 +51,7 @@ function defaults() {
     settings: {
       apiKey: '',
       model: 'gemini-3.5-flash-lite',
-      listenMode: 'gemini',   // 'gemini' = a IA ouve seu áudio | 'browser' = transcrição do navegador
+      listenMode: 'browser',  // 'browser' = transcrição do navegador (resposta imediata) | 'gemini' = a IA ouve seu áudio
       level: 'basico',
       theme: 'friends',       // tema escolhido no momento
       plan: 'basico',
@@ -110,6 +110,9 @@ if (!state.settings.teacher || state.settings.teacher === 'mario') state.setting
 /* Pavio em 3D vira o padrão (2026-11-14, com as expressões de corpo inteiro). Migração única:
    liga para todo mundo uma vez; depois, quem desligar fica desligado. Sem WebGL, o app usa o 2.5D. */
 if (!state.settings.pavio3dDefault) { state.settings.pavio3d = true; state.settings.pavio3dDefault = true; }
+// 2026-11-25: o microfone passa a usar a transcrição do navegador (resposta na hora, sem chave).
+// Quem quiser a IA ouvindo o áudio escolhe de novo em Configurações.
+if (!state.settings.ouvidoRapido) { state.settings.listenMode = 'browser'; state.settings.ouvidoRapido = true; }
 for (const [k, p] of Object.entries(PLANS)) {
   state.settings.planMinutes[k] ??= {};
   for (const s of p.stages) state.settings.planMinutes[k][s.id] ??= s.min;
