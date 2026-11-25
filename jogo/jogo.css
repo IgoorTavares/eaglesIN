@@ -547,6 +547,8 @@ html, body { background: var(--claro); color: var(--tinta-txt); }
 .modal-txt { color: var(--mudo); }
 .campo { color: var(--mudo); }
 .campo input { background: #F7FAF8; border-color: var(--linha); color: var(--tinta-txt); }
+.campo select { width: 100%; padding: 12px; border-radius: 12px; border: 2px solid var(--linha); background: #F7FAF8; color: var(--tinta-txt); font: 600 15px 'Inter', sans-serif; }
+.campo select:focus { outline: none; border-color: var(--verde); }
 .chave { border-bottom-color: var(--linha); }
 .chave small { color: var(--mudo); }
 .chave i { background: #D5DED8; }
